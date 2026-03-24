@@ -63,7 +63,7 @@ export default function RiskChart({ data, title }: Props) {
               boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
             }}
             labelStyle={{ color: "#1C1E21", fontWeight: 600 }}
-            formatter={(value: number) => [`${value} / 10`, "리스크 점수"]}
+            formatter={(value) => [`${value} / 10`, "리스크 점수"]}
           />
           <Bar dataKey="risk_score" radius={[4, 4, 0, 0]}>
             {data.map((entry, index) => (
