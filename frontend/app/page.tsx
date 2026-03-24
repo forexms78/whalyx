@@ -24,8 +24,7 @@ export default function Home() {
         }),
       });
       if (!res.ok) throw new Error("분석 요청 실패");
-      const data = await res.json();
-      setResult(data);
+      setResult(await res.json());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "알 수 없는 오류");
     } finally {
@@ -34,41 +33,96 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-gray-800 px-8 py-5">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <span className="text-2xl">⚔️</span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">War-Investment Agent</h1>
-            <p className="text-xs text-gray-400">지정학 리스크 기반 포트폴리오 분석 시스템</p>
+    <div style={{ background: "var(--fb-bg)", minHeight: "100vh" }}>
+      {/* 헤더 — Facebook 네비게이션 스타일 */}
+      <header style={{
+        background: "var(--fb-card)",
+        borderBottom: "1px solid var(--fb-border)",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        boxShadow: "var(--fb-shadow)",
+      }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              background: "var(--fb-blue)",
+              borderRadius: 8,
+              width: 40,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 20,
+            }}>⚔️</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "var(--fb-text-primary)" }}>War-Investment Agent</div>
+              <div style={{ fontSize: 11, color: "var(--fb-text-secondary)" }}>지정학 리스크 포트폴리오 분석</div>
+            </div>
           </div>
-          <span className="ml-auto text-xs bg-green-900/50 text-green-400 border border-green-800 px-3 py-1 rounded-full">
-            16 AI Agents Active
-          </span>
+          <div style={{
+            background: "var(--fb-blue-light)",
+            color: "var(--fb-blue)",
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "4px 12px",
+            borderRadius: 20,
+            border: "1px solid #B0CEFF",
+          }}>
+            ● 16 AI Agents Active
+          </div>
         </div>
       </header>
-      <div className="max-w-6xl mx-auto px-8 py-10">
-        {!result && !loading && <PortfolioInput onAnalyze={handleAnalyze} />}
+
+      {/* 메인 컨텐츠 */}
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 16px" }}>
+        {!result && !loading && (
+          <PortfolioInput onAnalyze={handleAnalyze} />
+        )}
+
         {loading && (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-700" />
-              <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 animate-spin" />
-            </div>
-            <p className="text-gray-400 text-sm">OMS 팀 에이전트 분석 중...</p>
-            <p className="text-xs text-gray-600">PM → TPM → Supervisor 1/2/3 → 최종 리포트</p>
+          <div style={{
+            background: "var(--fb-card)",
+            borderRadius: 8,
+            boxShadow: "var(--fb-shadow)",
+            padding: 48,
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              border: "4px solid var(--fb-border)",
+              borderTopColor: "var(--fb-blue)",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+              margin: "0 auto 16px",
+            }} />
+            <div style={{ fontWeight: 600, color: "var(--fb-text-primary)", marginBottom: 8 }}>OMS 팀 분석 중...</div>
+            <div style={{ color: "var(--fb-text-secondary)", fontSize: 13 }}>PM → TPM → Supervisor 1/2/3 → 최종 리포트</div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         )}
+
         {error && (
-          <div className="bg-red-900/30 border border-red-800 rounded-xl p-6 text-center">
-            <p className="text-red-400">{error}</p>
-            <button onClick={() => setError(null)} className="mt-4 text-sm text-gray-400 hover:text-white underline">
+          <div style={{
+            background: "#FFF0F0",
+            border: "1px solid #FFCDD2",
+            borderRadius: 8,
+            padding: 20,
+            textAlign: "center",
+          }}>
+            <div style={{ color: "var(--fb-danger)", fontWeight: 600 }}>{error}</div>
+            <button
+              onClick={() => setError(null)}
+              style={{ marginTop: 12, color: "var(--fb-blue)", background: "none", border: "none", cursor: "pointer", fontSize: 14 }}
+            >
               다시 시도
             </button>
           </div>
         )}
+
         {result && <Dashboard result={result} onReset={() => setResult(null)} />}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

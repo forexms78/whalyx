@@ -12,10 +12,10 @@ interface Props {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  매우높음: "text-red-400",
-  높음: "text-orange-400",
-  중간: "text-yellow-400",
-  낮음: "text-green-400",
+  매우높음: "#B71C1C",
+  높음: "#E65100",
+  중간: "#F57F17",
+  낮음: "#1B5E20",
 };
 
 export default function Dashboard({ result, onReset }: Props) {
@@ -24,32 +24,64 @@ export default function Dashboard({ result, onReset }: Props) {
   const overallRisk = result.overall_risk_level ?? "중간";
 
   return (
-    <div className="space-y-6">
-      {/* 상단 요약 바 */}
+    <div className="space-y-4">
+      {/* 상단 요약 카드 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3">
-            <p className="text-xs text-gray-500 mb-1">전체 리스크</p>
-            <p className={`text-lg font-bold ${RISK_COLORS[overallRisk] ?? "text-white"}`}>{overallRisk}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3">
-            <p className="text-xs text-gray-500 mb-1">공포 지수</p>
-            <p className="text-lg font-bold text-orange-400">{fearIndex} / 100</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3">
-            <p className="text-xs text-gray-500 mb-1">시장 감정</p>
-            <p className="text-lg font-bold text-blue-400">{viz?.overall_sentiment ?? "-"}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3">
-            <p className="text-xs text-gray-500 mb-1">PM 승인</p>
-            <p className={`text-lg font-bold ${result.pm_approved ? "text-green-400" : "text-red-400"}`}>
-              {result.pm_approved ? "APPROVED" : "REVISION"}
-            </p>
-          </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {[
+            {
+              label: "전체 리스크",
+              value: overallRisk,
+              color: RISK_COLORS[overallRisk] ?? "#1C1E21",
+            },
+            {
+              label: "공포 지수",
+              value: `${fearIndex} / 100`,
+              color: "#E65100",
+            },
+            {
+              label: "시장 감정",
+              value: viz?.overall_sentiment ?? "-",
+              color: "#1877F2",
+            },
+            {
+              label: "PM 승인",
+              value: result.pm_approved ? "APPROVED" : "REVISION",
+              color: result.pm_approved ? "#1B5E20" : "#B71C1C",
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-xl px-5 py-3"
+              style={{
+                background: "#fff",
+                border: "1px solid #E4E6EB",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+              }}
+            >
+              <p className="text-xs mb-1" style={{ color: "#65676B" }}>
+                {item.label}
+              </p>
+              <p className="text-base font-bold" style={{ color: item.color }}>
+                {item.value}
+              </p>
+            </div>
+          ))}
         </div>
         <button
           onClick={onReset}
-          className="text-sm text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 px-4 py-2 rounded-xl transition-colors"
+          className="text-sm px-4 py-2 rounded-lg transition-colors"
+          style={{
+            color: "#1877F2",
+            border: "1px solid #1877F2",
+            background: "#fff",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#E7F3FF";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "#fff";
+          }}
         >
           새 분석
         </button>
@@ -60,16 +92,26 @@ export default function Dashboard({ result, onReset }: Props) {
         <AlertBanner alerts={result.alerts} />
       )}
 
-      {/* 차트 + 테이블 */}
-      <div className="grid grid-cols-2 gap-6">
+      {/* 차트 */}
+      <div className="grid grid-cols-2 gap-4">
         {viz?.portfolio_risk_chart && (
           <RiskChart data={viz.portfolio_risk_chart} title="종목별 리스크 점수" />
         )}
         {viz?.sector_risk_chart && (
-          <RiskChart data={viz.sector_risk_chart.map(d => ({ stock: d.sector, risk_score: d.score, risk_level: "", sector: d.sector, change_30d: 0 }))} title="섹터별 리스크 점수" />
+          <RiskChart
+            data={viz.sector_risk_chart.map((d) => ({
+              stock: d.sector,
+              risk_score: d.score,
+              risk_level: "",
+              sector: d.sector,
+              change_30d: 0,
+            }))}
+            title="섹터별 리스크 점수"
+          />
         )}
       </div>
 
+      {/* 종목 테이블 */}
       {result.portfolio_risk_mapping && (
         <StockRiskTable mapping={result.portfolio_risk_mapping} />
       )}

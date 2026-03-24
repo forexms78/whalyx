@@ -221,6 +221,51 @@ CREATE TABLE IF NOT EXISTS analyses (
 
 ---
 
+## 기술적 의사결정 (Architecture Decision Records)
+
+### 1. Airflow + LangGraph 이중 파이프라인
+
+```
+[Airflow DAG — 스케줄 레이어]          [LangGraph — AI 에이전트 레이어]
+┌────────────────────────┐              ┌──────────────────────────────┐
+│  @hourly cron          │              │  PM → TPM → Sup1 → Sup2     │
+│  뉴스 수집              │──trigger──▶│  → Sup3 → PM QA              │
+│  심각도 판별            │              │  (16 agents StateGraph)      │
+│  LangGraph 트리거       │              └──────────────────────────────┘
+└────────────────────────┘
+```
+
+- **Airflow**: 주기적 실행·재시도·분기(BranchPythonOperator) 등 데이터 파이프라인 스케줄링에 특화
+- **LangGraph**: 에이전트 간 상태(State) 공유·조건 분기·루프 등 복잡한 AI 오케스트레이션에 특화
+- 둘을 결합해 "어떤 조건에서 에이전트를 실행할지"와 "에이전트들이 어떻게 협업할지"를 역할에 맞게 분리
+
+### 2. 공유 상태(PortfolioState) 기반 에이전트 통신
+
+```python
+class PortfolioState(TypedDict):
+    raw_news: list          # MSA#1 → MSA#2
+    events: list            # MSA#2 → MSA#3
+    financial_data: dict    # MSA#4 → MSA#5
+    risk_scores: dict       # MSA#5 → MSA#6
+    final_report: str       # MSA#9 → PM QA
+    pm_approved: bool       # PM QA 최종 결정
+```
+
+16개 에이전트가 개별 API를 호출하는 대신 **단일 TypedDict 상태를 공유**하여:
+- 에이전트 간 결합도 최소화
+- 중간 결과물 추적 및 디버깅 용이
+- LangGraph 체크포인트로 실패 시 재시작 가능
+
+### 3. PM QA 루프 — 자기 검증 메커니즘
+
+에이전트가 생성한 리포트를 **동일 LLM이 PM 역할로 재검토**:
+- `pm_approved=True` → 사용자에게 최종 결과 전달
+- `pm_approved=False` → `pm_feedback`과 함께 재생성 요청
+
+단순 체이닝이 아닌 **반성적 피드백 루프(Reflexion Pattern)** 구현
+
+---
+
 ## 기술적 해결 사항
 
 | 문제 | 원인 | 해결 |
@@ -228,6 +273,23 @@ CREATE TABLE IF NOT EXISTS analyses (
 | Yahoo Finance 데이터 수집 실패 | 한국 IP 차단 | User-Agent 헤더 + REST API 직접 호출 폴백 |
 | Gemini API 429 오류 | 무료 티어 분당 요청 한도 | 30초 간격 자동 재시도 로직 (최대 3회) |
 | Gemini 2.0 Flash quota 0 | AI Studio 외 경로 발급 키 제한 | Gemini 2.5 Flash 사용 |
+| Supabase 저장 실패 | 네트워크 오류 | /tmp 로컬 JSON 폴백으로 데이터 유실 방지 |
+
+---
+
+## 면접 포인트 (Interview Talking Points)
+
+**Q. 왜 16개 에이전트가 필요한가? 하나의 LLM으로 처리하면 안 되나?**
+
+> 하나의 LLM에 모든 태스크를 맡기면 컨텍스트가 커질수록 성능이 저하됩니다. 각 에이전트가 자신의 전문 역할에만 집중하면 프롬프트가 간결해지고, 실패 시 해당 에이전트만 재실행할 수 있어 디버깅이 용이합니다. 또한 실제 조직의 역할 분리(PM/개발/QA)를 에이전트 구조로 표현함으로써 코드 유지보수성도 높아집니다.
+
+**Q. Airflow와 LangGraph를 함께 쓴 이유는?**
+
+> Airflow는 "언제, 어떤 조건에서 실행할지"를 담당하고, LangGraph는 "에이전트들이 어떻게 협업할지"를 담당합니다. 뉴스 수집과 심각도 판별은 Airflow DAG의 BranchPythonOperator로 처리하고, 심각 이벤트 발생 시에만 LangGraph 파이프라인을 트리거하는 이벤트 기반 아키텍처를 구현했습니다.
+
+**Q. 비용 $0/month 가 실제로 가능한가?**
+
+> Gemini 2.5 Flash 무료 티어(분당 10 요청, 월 1000회), NewsAPI 무료 플랜(월 100회), Supabase 무료 플랜(500MB), Vercel/Railway 무료 플랜으로 포트폴리오 수준에서는 완전 무료 운영이 가능합니다.
 
 ---
 
