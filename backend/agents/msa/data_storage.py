@@ -3,9 +3,8 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-# Supabase는 선택적으로 사용 — 없으면 로컬 JSON 저장
 try:
     from supabase import create_client
     SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -32,15 +31,17 @@ def store_analysis(
     if supabase:
         try:
             supabase.table("analyses").insert(payload).execute()
+            print("[DataStorage] Supabase 저장 완료")
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[DataStorage] Supabase 저장 실패: {e}")
 
     # fallback: 로컬 파일 저장
     try:
         path = f"/tmp/war_inve_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(f"[DataStorage] 로컬 저장 완료: {path}")
         return True
     except Exception:
         return False
