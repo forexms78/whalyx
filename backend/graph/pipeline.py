@@ -1,41 +1,21 @@
 from langgraph.graph import StateGraph, END
 from backend.graph.state import PortfolioState
-from backend.agents.pm_agent import pm_agent, pm_qa
-from backend.agents.tpm_agent import tpm_agent
-from backend.agents.supervisors.supervisor_1 import supervisor_1
-from backend.agents.supervisors.supervisor_2 import supervisor_2
-from backend.agents.supervisors.supervisor_3 import supervisor_3
-
-
-def should_revise(state: PortfolioState) -> str:
-    if state.get("pm_approved"):
-        return "approved"
-    return "end"  # 재작업 루프 방지 (MVP에서는 1회만)
+from backend.agents.data_collector import data_collector
+from backend.agents.analyzer import analyzer
+from backend.agents.report_generator import report_generator
 
 
 def build_pipeline() -> StateGraph:
     graph = StateGraph(PortfolioState)
 
-    # 노드 등록
-    graph.add_node("pm", pm_agent)
-    graph.add_node("tpm", tpm_agent)
-    graph.add_node("supervisor_1", supervisor_1)
-    graph.add_node("supervisor_2", supervisor_2)
-    graph.add_node("supervisor_3", supervisor_3)
-    graph.add_node("pm_qa", pm_qa)
+    graph.add_node("data_collector", data_collector)
+    graph.add_node("analyzer", analyzer)
+    graph.add_node("report_generator", report_generator)
 
-    # 엣지 연결
-    graph.set_entry_point("pm")
-    graph.add_edge("pm", "tpm")
-    graph.add_edge("tpm", "supervisor_1")
-    graph.add_edge("supervisor_1", "supervisor_2")
-    graph.add_edge("supervisor_2", "supervisor_3")
-    graph.add_edge("supervisor_3", "pm_qa")
-    graph.add_conditional_edges(
-        "pm_qa",
-        should_revise,
-        {"approved": END, "end": END},
-    )
+    graph.set_entry_point("data_collector")
+    graph.add_edge("data_collector", "analyzer")
+    graph.add_edge("analyzer", "report_generator")
+    graph.add_edge("report_generator", END)
 
     return graph.compile()
 
@@ -47,25 +27,13 @@ def run_analysis(user_request: str, portfolio: list[str]) -> dict:
     initial_state: PortfolioState = {
         "user_request": user_request,
         "portfolio": portfolio,
-        "pm_task": None,
-        "pm_approved": None,
-        "pm_feedback": None,
-        "tpm_plan": None,
-        "tpm_execution_order": None,
         "raw_news": None,
-        "classified_events": None,
-        "sentiment_scores": None,
         "financial_data": None,
-        "risk_scores": None,
+        "analysis": None,
         "portfolio_risk_mapping": None,
-        "historical_comparison": None,
         "alerts": None,
-        "report": None,
         "visualization_data": None,
-        "stored": None,
         "final_report": None,
         "error": None,
     }
-
-    result = pipeline.invoke(initial_state)
-    return result
+    return pipeline.invoke(initial_state)

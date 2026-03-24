@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from backend.graph.pipeline import run_analysis
 
-app = FastAPI(title="War-Investment Agent API", version="1.0.0")
+app = FastAPI(title="War-Investment Agent API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,12 +20,12 @@ class AnalysisRequest(BaseModel):
 
 class AnalysisResponse(BaseModel):
     final_report: str | None
-    pm_approved: bool | None
-    pm_feedback: str | None
     alerts: list[str] | None
     visualization_data: dict | None
     portfolio_risk_mapping: dict | None
     overall_risk_level: str | None
+    pm_approved: bool | None = True
+    pm_feedback: str | None = None
 
 
 @app.get("/")
@@ -40,11 +40,10 @@ def analyze_portfolio(request: AnalysisRequest):
 
     try:
         result = run_analysis(request.user_request, request.portfolio)
-        risk_scores = result.get("risk_scores") or {}
+        analysis = result.get("analysis") or {}
+        risk_scores = analysis.get("risk_scores") or {}
         return AnalysisResponse(
-            final_report=result.get("final_report") or result.get("report"),
-            pm_approved=result.get("pm_approved"),
-            pm_feedback=result.get("pm_feedback"),
+            final_report=result.get("final_report"),
             alerts=result.get("alerts"),
             visualization_data=result.get("visualization_data"),
             portfolio_risk_mapping=result.get("portfolio_risk_mapping"),
