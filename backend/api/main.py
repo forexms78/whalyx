@@ -5,7 +5,7 @@ from backend.services.news import fetch_investor_news, fetch_stock_news
 from backend.services.financial import get_stock_data, get_multiple_stocks
 from backend.services.ai_summary import generate_investor_insight, generate_stock_insight
 
-app = FastAPI(title="Smart Money API", version="1.0.0")
+app = FastAPI(title="WhaleTracks API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,7 +17,7 @@ app.add_middleware(
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "Smart Money API"}
+    return {"status": "ok", "service": "WhaleTracks API"}
 
 
 @app.get("/investors")

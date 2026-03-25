@@ -39,12 +39,12 @@ export default function Home() {
               fontSize: 16, fontWeight: 700,
             }}>$</div>
             <div>
-              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>Smart Money</span>
+              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>WhaleTracks</span>
               <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>세계 최고 투자자들의 포트폴리오</span>
             </div>
           </div>
           <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            실시간 뉴스 · NewsAPI · Gemini AI
+            Track the whales · NewsAPI · Gemini AI
           </div>
         </div>
       </header>
