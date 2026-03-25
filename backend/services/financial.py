@@ -9,91 +9,74 @@ _session.headers.update({
 })
 yf.utils.requests = _session  # type: ignore
 
-SECTOR_MAP = {
-    "005930.KS": "반도체",
-    "TSM": "반도체",
-    "NVDA": "반도체",
-    "AAPL": "기술",
-    "MSFT": "기술",
-    "XOM": "에너지",
-    "CVX": "에너지",
-    "BA": "방산",
-    "LMT": "방산",
-    "JPM": "금융",
-    "GS": "금융",
-}
 
-NAME_MAP = {
-    "삼성전자": "005930.KS",
-    "삼성": "005930.KS",
-    "TSMC": "TSM",
-    "엔비디아": "NVDA",
-    "애플": "AAPL",
-    "마이크로소프트": "MSFT",
-}
-
-
-def get_ticker_symbol(stock_name: str) -> str:
-    return NAME_MAP.get(stock_name, stock_name)
-
-
-def _fetch_via_rest(ticker_symbol: str) -> dict | None:
+def _fetch_via_rest(ticker: str) -> dict | None:
     try:
-        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker_symbol}?interval=1d&range=30d"
+        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=30d"
         r = _session.get(url, timeout=10)
         r.raise_for_status()
-        data = r.json()
-        result = data["chart"]["result"][0]
-        closes = result["indicators"]["quote"][0]["close"]
-        closes = [c for c in closes if c is not None]
+        data = r.json()["chart"]["result"][0]
+        closes = [c for c in data["indicators"]["quote"][0]["close"] if c is not None]
         if not closes:
             return None
-        current_price = closes[-1]
-        prev_price = closes[0]
-        change_pct = ((current_price - prev_price) / prev_price) * 100
-        pct_changes = [(closes[i] - closes[i-1]) / closes[i-1] * 100 for i in range(1, len(closes))]
-        volatility = statistics.stdev(pct_changes) if len(pct_changes) > 1 else 0
+        timestamps = data.get("timestamp", [])
+        current = closes[-1]
+        prev = closes[0]
+        change_pct = round((current - prev) / prev * 100, 2)
+        changes = [(closes[i] - closes[i-1]) / closes[i-1] * 100 for i in range(1, len(closes))]
+        chart = [
+            {"date": datetime.fromtimestamp(timestamps[i]).strftime("%m/%d"), "price": round(closes[i], 2)}
+            for i in range(len(closes))
+            if i < len(timestamps)
+        ] if timestamps else []
         return {
-            "current_price": round(current_price, 2),
-            "change_30d_pct": round(change_pct, 2),
-            "volatility": round(volatility, 2),
+            "current_price": round(current, 2),
+            "prev_price": round(prev, 2),
+            "change_30d_pct": change_pct,
+            "change_1d_pct": round((closes[-1] - closes[-2]) / closes[-2] * 100, 2) if len(closes) > 1 else 0,
+            "volatility": round(statistics.stdev(changes), 2) if len(changes) > 1 else 0,
+            "chart": chart[-20:],
         }
     except Exception:
         return None
 
 
-def fetch_financial_data(portfolio: list[str]) -> dict:
-    result = {}
-    end_date = datetime.today()
-    start_date = end_date - timedelta(days=30)
+def get_stock_data(ticker: str) -> dict:
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        end = datetime.today()
+        start = end - timedelta(days=30)
+        hist = t.history(start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"))
+        if not hist.empty:
+            closes = hist["Close"].tolist()
+            dates = [d.strftime("%m/%d") for d in hist.index]
+            current = round(float(closes[-1]), 2)
+            prev = round(float(closes[0]), 2)
+            change_pct = round((current - prev) / prev * 100, 2)
+            changes = [(closes[i] - closes[i-1]) / closes[i-1] * 100 for i in range(1, len(closes))]
+            return {
+                "ticker": ticker,
+                "name": info.get("longName") or info.get("shortName") or ticker,
+                "sector": info.get("sector", ""),
+                "industry": info.get("industry", ""),
+                "market_cap": info.get("marketCap"),
+                "current_price": current,
+                "prev_price": prev,
+                "change_30d_pct": change_pct,
+                "change_1d_pct": round((closes[-1] - closes[-2]) / closes[-2] * 100, 2) if len(closes) > 1 else 0,
+                "volatility": round(statistics.stdev(changes), 2) if len(changes) > 1 else 0,
+                "chart": [{"date": dates[i], "price": round(closes[i], 2)} for i in range(len(closes))][-20:],
+            }
+    except Exception:
+        pass
 
-    for stock in portfolio:
-        ticker_symbol = get_ticker_symbol(stock)
-        sector = SECTOR_MAP.get(ticker_symbol, SECTOR_MAP.get(stock, "기타"))
-        fetched = None
+    fallback = _fetch_via_rest(ticker)
+    if fallback:
+        return {"ticker": ticker, "name": ticker, "sector": "", "industry": "", "market_cap": None, **fallback}
 
-        try:
-            ticker = yf.Ticker(ticker_symbol)
-            hist = ticker.history(start=start_date.strftime("%Y-%m-%d"), end=end_date.strftime("%Y-%m-%d"))
-            if not hist.empty:
-                current_price = float(hist["Close"].iloc[-1])
-                prev_price = float(hist["Close"].iloc[0])
-                change_pct = ((current_price - prev_price) / prev_price) * 100
-                volatility = float(hist["Close"].pct_change().std() * 100)
-                fetched = {
-                    "current_price": round(current_price, 2),
-                    "change_30d_pct": round(change_pct, 2),
-                    "volatility": round(volatility, 2),
-                }
-        except Exception:
-            pass
+    return {"ticker": ticker, "name": ticker, "error": "데이터 수집 실패"}
 
-        if fetched is None:
-            fetched = _fetch_via_rest(ticker_symbol)
 
-        if fetched:
-            result[stock] = {"ticker": ticker_symbol, "sector": sector, **fetched}
-        else:
-            result[stock] = {"error": "데이터 수집 실패", "ticker": ticker_symbol, "sector": sector}
-
-    return result
+def get_multiple_stocks(tickers: list[str]) -> dict[str, dict]:
+    return {t: get_stock_data(t) for t in tickers}

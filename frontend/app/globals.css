@@ -1,32 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  /* Meta / Facebook 컬러 시스템 */
-  --fb-blue: #1877F2;
-  --fb-blue-dark: #0d6efd;
-  --fb-blue-light: #E7F3FF;
-  --fb-bg: #F0F2F5;
-  --fb-card: #FFFFFF;
-  --fb-border: #CED0D4;
-  --fb-text-primary: #050505;
-  --fb-text-secondary: #65676B;
-  --fb-text-placeholder: #8A8D91;
-  --fb-danger: #FA383E;
-  --fb-warning: #F7B928;
-  --fb-success: #42B72A;
-  --fb-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
+  --bg: #0a0e1a;
+  --card: #111827;
+  --card-hover: #1a2235;
+  --border: #1f2a3d;
+  --text-primary: #f0f4ff;
+  --text-secondary: #8892a4;
+  --text-muted: #4a5568;
+  --accent: #3b82f6;
+  --green: #10b981;
+  --red: #ef4444;
+  --gold: #f59e0b;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--fb-bg);
-  color: var(--fb-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  line-height: 1.34;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh;
 }
 
-* { box-sizing: border-box; }
-
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--fb-bg); }
-::-webkit-scrollbar-thumb { background: var(--fb-border); border-radius: 4px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

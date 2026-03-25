@@ -1,128 +1,108 @@
 "use client";
 
-import { useState } from "react";
-import PortfolioInput from "@/components/PortfolioInput";
-import Dashboard from "@/components/Dashboard";
-import { AnalysisResult } from "@/types";
+import { useEffect, useState } from "react";
+import { InvestorSummary, HotStock } from "@/types";
+import InvestorCard from "@/components/InvestorCard";
+import InvestorModal from "@/components/InvestorModal";
+import HotStocks from "@/components/HotStocks";
 
 export default function Home() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [investors, setInvestors] = useState<InvestorSummary[]>([]);
+  const [hotStocks, setHotStocks] = useState<HotStock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
 
-  const handleAnalyze = async (portfolio: string[]) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_request: "내 포트폴리오의 지정학 리스크를 분석해줘",
-          portfolio,
-        }),
-      });
-      if (!res.ok) throw new Error("분석 요청 실패");
-      setResult(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "알 수 없는 오류");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/investors`).then(r => r.json()),
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/stocks/hot`).then(r => r.json()),
+    ]).then(([invData, stockData]) => {
+      setInvestors(invData.investors || []);
+      setHotStocks(stockData.stocks || []);
+    }).finally(() => setLoading(false));
+  }, []);
 
   return (
-    <div style={{ background: "var(--fb-bg)", minHeight: "100vh" }}>
-      {/* 헤더 — Facebook 네비게이션 스타일 */}
+    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      {/* 헤더 */}
       <header style={{
-        background: "var(--fb-card)",
-        borderBottom: "1px solid var(--fb-border)",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
-        boxShadow: "var(--fb-shadow)",
+        borderBottom: "1px solid var(--border)",
+        position: "sticky", top: 0, zIndex: 100,
+        background: "rgba(10,14,26,0.95)", backdropFilter: "blur(12px)",
       }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
-              background: "var(--fb-blue)",
-              borderRadius: 8,
-              width: 40,
-              height: 40,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20,
-            }}>⚔️</div>
+              width: 34, height: 34, borderRadius: 8,
+              background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 700,
+            }}>$</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "var(--fb-text-primary)" }}>War-Investment Agent</div>
-              <div style={{ fontSize: 11, color: "var(--fb-text-secondary)" }}>지정학 리스크 포트폴리오 분석</div>
+              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.02em" }}>Smart Money</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 8 }}>세계 최고 투자자들의 포트폴리오</span>
             </div>
           </div>
-          <div style={{
-            background: "var(--fb-blue-light)",
-            color: "var(--fb-blue)",
-            fontSize: 12,
-            fontWeight: 600,
-            padding: "4px 12px",
-            borderRadius: 20,
-            border: "1px solid #B0CEFF",
-          }}>
-            ● AI 분석 시스템
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            실시간 뉴스 · NewsAPI · Gemini AI
           </div>
         </div>
       </header>
 
-      {/* 메인 컨텐츠 */}
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 16px" }}>
-        {!result && !loading && (
-          <PortfolioInput onAnalyze={handleAnalyze} />
-        )}
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 20px" }}>
+        {/* 히어로 섹션 */}
+        <div style={{ marginBottom: 40, textAlign: "center" }}>
+          <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 12, lineHeight: 1.2 }}>
+            <span style={{ color: "var(--gold)" }}>세계 최고 투자자</span>들은<br />지금 무엇을 사고 있을까?
+          </h1>
+          <p style={{ fontSize: 16, color: "var(--text-secondary)", maxWidth: 500, margin: "0 auto" }}>
+            캐시 우드, 워런 버핏, 젠슨 황 등 8인의 최신 포트폴리오와<br />
+            실시간 뉴스를 한눈에 확인하세요
+          </p>
+        </div>
 
-        {loading && (
-          <div style={{
-            background: "var(--fb-card)",
-            borderRadius: 8,
-            boxShadow: "var(--fb-shadow)",
-            padding: 48,
-            textAlign: "center",
-          }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 80 }}>
             <div style={{
-              width: 48,
-              height: 48,
-              border: "4px solid var(--fb-border)",
-              borderTopColor: "var(--fb-blue)",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-              margin: "0 auto 16px",
+              width: 44, height: 44, border: "4px solid var(--border)",
+              borderTopColor: "var(--accent)", borderRadius: "50%",
+              animation: "spin 0.8s linear infinite", margin: "0 auto 16px",
             }} />
-            <div style={{ fontWeight: 600, color: "var(--fb-text-primary)", marginBottom: 8 }}>분석 중...</div>
-            <div style={{ color: "var(--fb-text-secondary)", fontSize: 13 }}>뉴스 수집 → 금융 데이터 → AI 분석 → 리포트 생성</div>
+            <div style={{ color: "var(--text-secondary)" }}>포트폴리오 데이터 로딩 중...</div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-        )}
+        ) : (
+          <>
+            {/* 핫 종목 */}
+            <HotStocks stocks={hotStocks} />
 
-        {error && (
-          <div style={{
-            background: "#FFF0F0",
-            border: "1px solid #FFCDD2",
-            borderRadius: 8,
-            padding: 20,
-            textAlign: "center",
-          }}>
-            <div style={{ color: "var(--fb-danger)", fontWeight: 600 }}>{error}</div>
-            <button
-              onClick={() => setError(null)}
-              style={{ marginTop: 12, color: "var(--fb-blue)", background: "none", border: "none", cursor: "pointer", fontSize: 14 }}
-            >
-              다시 시도
-            </button>
-          </div>
+            {/* 투자자 그리드 */}
+            <div style={{ marginBottom: 16 }}>
+              <span style={{ fontSize: 18, fontWeight: 700 }}>투자 거장 {investors.length}인</span>
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: 16,
+            }}>
+              {investors.map(inv => (
+                <InvestorCard
+                  key={inv.id}
+                  investor={inv}
+                  onClick={() => setSelectedInvestor(inv.id)}
+                />
+              ))}
+            </div>
+          </>
         )}
-
-        {result && <Dashboard result={result} onReset={() => setResult(null)} />}
       </main>
+
+      {selectedInvestor && (
+        <InvestorModal
+          investorId={selectedInvestor}
+          onClose={() => setSelectedInvestor(null)}
+        />
+      )}
     </div>
   );
 }
