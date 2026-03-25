@@ -88,7 +88,7 @@ export default function StockModal({ ticker, onClose }: Props) {
                       <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10, fill: "#4a5568" }} axisLine={false} tickLine={false} width={60} />
                       <Tooltip
                         contentStyle={{ background: "#1a2235", border: "1px solid #1f2a3d", borderRadius: 8, fontSize: 12 }}
-                        formatter={(v: number) => [`$${v.toLocaleString()}`, "가격"]}
+                        formatter={(v: unknown) => [`$${Number(v).toLocaleString()}`, "가격"]}
                       />
                       <Line type="monotone" dataKey="price" stroke={isUp ? "#10b981" : "#ef4444"} strokeWidth={2} dot={false} />
                     </LineChart>
