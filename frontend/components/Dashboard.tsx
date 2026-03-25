@@ -113,7 +113,7 @@ export default function Dashboard({ result, onReset }: Props) {
 
       {/* AI 리포트 */}
       {result.final_report && (
-        <ReportSection report={result.final_report} feedback={result.pm_feedback} />
+        <ReportSection report={result.final_report} />
       )}
     </div>
   );

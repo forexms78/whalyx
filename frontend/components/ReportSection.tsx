@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
-
 interface Props {
   report: string;
-  feedback: string | null;
 }
 
-export default function ReportSection({ report, feedback }: Props) {
-  const [showFeedback, setShowFeedback] = useState(false);
+export default function ReportSection({ report }: Props) {
 
   return (
     <div
@@ -26,29 +22,7 @@ export default function ReportSection({ report, feedback }: Props) {
         <h3 className="text-sm font-semibold" style={{ color: "#1C1E21" }}>
           AI 리스크 리포트
         </h3>
-        {feedback && (
-          <button
-            onClick={() => setShowFeedback(!showFeedback)}
-            className="text-xs underline"
-            style={{ color: "#1877F2" }}
-          >
-            PM 피드백 {showFeedback ? "숨기기" : "보기"}
-          </button>
-        )}
       </div>
-
-      {showFeedback && feedback && (
-        <div
-          className="px-5 py-3 text-xs"
-          style={{
-            background: "#E7F3FF",
-            borderBottom: "1px solid #B0C8F7",
-            color: "#1877F2",
-          }}
-        >
-          <strong>PM 검토:</strong> {feedback}
-        </div>
-      )}
 
       <div className="px-5 py-5">
         <p
