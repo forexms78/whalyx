@@ -249,7 +249,7 @@ async def money_flow():
             "change_30d": tnx.get("change_30d_pct"),
             "description": "금리↑ → 채권·예금 매력↑, 주식·코인·부동산↓",
             "color": "#6366f1",
-            "icon": "📈",
+            "icon": "TNX",
         },
         {
             "category": "주식",
@@ -258,7 +258,7 @@ async def money_flow():
             "change_30d": spy.get("change_30d_pct"),
             "description": "금리↓ 수혜, 기업 실적·AI 성장 모멘텀",
             "color": "#10b981",
-            "icon": "📊",
+            "icon": "SPY",
         },
         {
             "category": "채권",
@@ -267,7 +267,7 @@ async def money_flow():
             "change_30d": tlt.get("change_30d_pct"),
             "description": "금리↓ 시 가격 상승. 경기침체 헤지 수단.",
             "color": "#3b82f6",
-            "icon": "🏛️",
+            "icon": "TLT",
         },
         {
             "category": "금",
@@ -276,7 +276,7 @@ async def money_flow():
             "change_30d": gld.get("change_30d_pct"),
             "description": "인플레이션·지정학 리스크 헤지. 달러 약세 수혜.",
             "color": "#f59e0b",
-            "icon": "🥇",
+            "icon": "GLD",
         },
         {
             "category": "코인",
@@ -285,7 +285,7 @@ async def money_flow():
             "change_30d": btc.get("price_change_30d") if btc else None,
             "description": "위험 선호 자산. 금리 인하·유동성 확장 시 강세.",
             "color": "#f97316",
-            "icon": "₿",
+            "icon": "BTC",
         },
         {
             "category": "부동산",
@@ -294,7 +294,7 @@ async def money_flow():
             "change_30d": 1.2,
             "description": "저금리·유동성 환경에서 강세. 고금리 시 조정.",
             "color": "#ec4899",
-            "icon": "🏠",
+            "icon": "APT",
         },
     ]
 

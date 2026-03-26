@@ -54,26 +54,26 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
       {/* 금리 신호 배너 */}
       <div style={{
         background: signalBg,
-        border: `1px solid ${signalColor}33`,
-        borderRadius: 12, padding: "16px 24px", marginBottom: 16,
-        display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+        border: `1px solid ${signalColor}44`,
+        borderRadius: 12, padding: "14px 20px", marginBottom: 16,
+        display: "flex", alignItems: "center", gap: 14,
       }}>
+        {/* 레벨 배지 */}
         <div style={{
-          fontSize: 28, width: 48, height: 48, borderRadius: 12,
-          background: `${signalColor}22`, display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "5px 12px", borderRadius: 8,
+          background: `${signalColor}22`,
+          border: `1px solid ${signalColor}55`,
+          fontSize: 11, fontWeight: 800, color: signalColor,
+          letterSpacing: "0.08em", whiteSpace: "nowrap",
+          flexShrink: 0,
         }}>
-          {rate_signal.level === "high"
-            ? <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--red)",marginRight:6}} />
-            : rate_signal.level === "low"
-            ? <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--green)",marginRight:6}} />
-            : <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--gold)",marginRight:6}} />
-          }
+          {rate_signal.level === "high" ? "HIGH RATE" : rate_signal.level === "low" ? "LOW RATE" : "MID RATE"}
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: signalColor, marginBottom: 4 }}>
-            돈의 흐름 · Fed 기준금리 {fed_rate}%
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: signalColor, marginBottom: 3 }}>
+            돈의 흐름 · Fed {fed_rate}%
           </div>
-          <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
             {rate_signal.message}
           </div>
         </div>
@@ -164,7 +164,16 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>{asset.icon}</span>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+                    background: `${asset.color}18`,
+                    border: `1px solid ${asset.color}44`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 800, color: asset.color,
+                    letterSpacing: "-0.02em",
+                  }}>
+                    {asset.icon}
+                  </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{asset.name}</div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{asset.category}</div>

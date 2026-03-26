@@ -20,25 +20,21 @@ function scoreInfo(score: number) {
   return              { label: "Super Sell",  color: "#ef4444", bg: "rgba(239,68,68,0.1)" };
 }
 
-// ── 반원형 게이지 SVG ──
+// ── 반원형 게이지 SVG (스트로크 방식 — 하드코딩 색상으로 안정적 렌더링) ──
 function SemiGauge({ score }: { score: number }) {
-  const cx = 100, cy = 95, r = 78, innerR = 58;
+  const cx = 100, cy = 90, r = 68, sw = 14;
 
-  // 수학 각도(rad): score 0 = 왼쪽(π), score 100 = 오른쪽(0)
-  function toRad(s: number) {
-    return (1 - s / 100) * Math.PI;
-  }
-  function pt(s: number, radius: number) {
-    const a = toRad(s);
-    return { x: cx + radius * Math.cos(a), y: cy - radius * Math.sin(a) };
-  }
-
-  // 호 세그먼트 경로 (도넛형)
-  function arcPath(s1: number, s2: number, outerR: number, inR: number) {
-    const p1 = pt(s1, outerR), p2 = pt(s2, outerR);
-    const p1i = pt(s1, inR),   p2i = pt(s2, inR);
+  // score → 반원 위 좌표: 0=왼쪽(9시), 100=오른쪽(3시), 50=위(12시)
+  function arcPath(s1: number, s2: number): string {
+    if (s1 >= s2) return "";
+    const a1 = (1 - s1 / 100) * Math.PI;
+    const a2 = (1 - s2 / 100) * Math.PI;
+    const x1 = cx + r * Math.cos(a1);
+    const y1 = cy - r * Math.sin(a1);
+    const x2 = cx + r * Math.cos(a2);
+    const y2 = cy - r * Math.sin(a2);
     const large = (s2 - s1) > 50 ? 1 : 0;
-    return `M ${p1.x} ${p1.y} A ${outerR} ${outerR} 0 ${large} 0 ${p2.x} ${p2.y} L ${p2i.x} ${p2i.y} A ${inR} ${inR} 0 ${large} 1 ${p1i.x} ${p1i.y} Z`;
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
   }
 
   const zones = [
@@ -50,35 +46,50 @@ function SemiGauge({ score }: { score: number }) {
   ];
 
   const info = scoreInfo(score);
-  const needle = pt(score, r - 10);
 
-  // 눈금 5개
-  const ticks = [0, 25, 50, 75, 100];
+  // 바늘 끝 좌표
+  const na = (1 - score / 100) * Math.PI;
+  const nLen = r - sw / 2 - 4;
+  const nx = (cx + nLen * Math.cos(na)).toFixed(2);
+  const ny = (cy - nLen * Math.sin(na)).toFixed(2);
+
+  // 눈금 라벨 위치 (바깥쪽)
+  const tickLabels = [
+    { s: 0,  label: "SS" },
+    { s: 50, label: "N" },
+    { s: 100, label: "SB" },
+  ];
 
   return (
-    <svg viewBox="0 0 200 110" width="200" height="110" style={{ overflow: "visible" }}>
+    <svg viewBox="0 0 200 118" style={{ width: "100%", maxWidth: 200, display: "block" }}>
       {/* 배경 트랙 */}
-      <path d={arcPath(0, 100, r, innerR)} fill="var(--border)" />
-      {/* 구역 색상 */}
+      <path d={arcPath(0, 100)} fill="none" stroke="#d1dce8" strokeWidth={sw + 2} strokeLinecap="butt" />
+      {/* 구역 색상 (연하게) */}
       {zones.map(z => (
-        <path key={z.s1} d={arcPath(z.s1, z.s2, r, innerR)} fill={z.color} opacity={0.18} />
+        <path key={z.s1} d={arcPath(z.s1, z.s2)} fill="none" stroke={z.color} strokeWidth={sw} opacity={0.25} strokeLinecap="butt" />
       ))}
-      {/* 활성 채우기 */}
-      <path d={arcPath(0, score, r - 1, innerR + 1)} fill={info.color} opacity={0.85} />
-      {/* 눈금 */}
-      {ticks.map(t => {
-        const outer = pt(t, r + 5);
-        const inner = pt(t, r - 1);
-        return <line key={t} x1={outer.x} y1={outer.y} x2={inner.x} y2={inner.y} stroke="var(--border-light)" strokeWidth={1.5} />;
+      {/* 현재 점수까지 진한 호 */}
+      {score > 0 && (
+        <path d={arcPath(0, score)} fill="none" stroke={info.color} strokeWidth={sw} strokeLinecap="round" />
+      )}
+      {/* 눈금 라벨 */}
+      {tickLabels.map(t => {
+        const ta = (1 - t.s / 100) * Math.PI;
+        const lx = cx + (r + sw) * Math.cos(ta);
+        const ly = cy - (r + sw) * Math.sin(ta);
+        return (
+          <text key={t.s} x={lx.toFixed(1)} y={ly.toFixed(1)} textAnchor="middle"
+            fontSize={8} fill="#94a3b8" fontWeight="600">{t.label}</text>
+        );
       })}
       {/* 바늘 */}
-      <line x1={cx} y1={cy} x2={needle.x} y2={needle.y} stroke={info.color} strokeWidth={2.5} strokeLinecap="round" />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={info.color} strokeWidth={2.5} strokeLinecap="round" />
       {/* 중앙 원 */}
-      <circle cx={cx} cy={cy} r={6} fill={info.color} />
-      <circle cx={cx} cy={cy} r={3} fill="var(--card)" />
-      {/* 점수 텍스트 */}
-      <text x={cx} y={cy + 16} textAnchor="middle" fontSize={20} fontWeight={800} fill={info.color}>{score}</text>
-      <text x={cx} y={cy + 28} textAnchor="middle" fontSize={9} fill="var(--text-muted)">/100</text>
+      <circle cx={cx} cy={cy} r={7} fill={info.color} />
+      <circle cx={cx} cy={cy} r={3} fill="#ffffff" />
+      {/* 점수 */}
+      <text x={cx} y={cy + 18} textAnchor="middle" fontSize={26} fontWeight="800" fill={info.color}>{score}</text>
+      <text x={cx} y={cy + 30} textAnchor="middle" fontSize={9} fill="#94a3b8">/100</text>
     </svg>
   );
 }
@@ -99,19 +110,19 @@ export default function WhaleSignalSection({
   return (
     <div style={{ marginBottom: 32 }}>
       {/* ── 상단 헤더 배너 ── */}
-      <div style={{
+      <div className="whale-banner" style={{
         background: "var(--card)",
         border: "1px solid var(--border)",
         borderRadius: 16,
-        padding: "24px 28px",
+        padding: "20px 24px",
         marginBottom: 16,
         display: "grid",
         gridTemplateColumns: "auto 1fr",
-        gap: 32,
+        gap: 24,
         alignItems: "center",
       }}>
         {/* 왼쪽: 게이지 */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 200 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 180 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>
             Whale Sentiment
           </div>

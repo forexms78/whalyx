@@ -101,21 +101,42 @@ export default function Home() {
         background: "var(--header-bg)", backdropFilter: "blur(16px)",
       }}>
         <div className="header-inner" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {/* 로고 */}
+          {/* 로고 + 모바일용 테마 토글 포함 */}
           <div className="header-top-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* W 로고 마크 */}
-            <div style={{
-              width: 34, height: 34, borderRadius: 9,
-              background: "var(--accent)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em" }}>W</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 9,
+                background: "var(--accent)", display: "flex",
+                alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em" }}>W</span>
+              </div>
+              <div>
+                <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em" }}>Whalyx</span>
+                <span className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>Whale Tracker</span>
+              </div>
             </div>
-            <div>
-              <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em" }}>Whalyx</span>
-              <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>Whale Tracker</span>
-            </div>
+            {/* 테마 토글 — 항상 로고 옆에 위치 (모바일 포함) */}
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "5px 10px",
+                cursor: "pointer",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--text-secondary)",
+                transition: "all 0.15s",
+                flexShrink: 0,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {theme === "dark" ? "LIGHT" : "DARK"}
+            </button>
           </div>
 
           {/* 탭 네비게이션 */}
@@ -139,30 +160,9 @@ export default function Home() {
             ))}
           </nav>
 
-          {/* 우측: 테마 토글 + 설명 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-              13F Filing · Live Markets · AI Insight
-            </div>
-            <button
-              onClick={toggleTheme}
-              title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-              style={{
-                background: "var(--toggle-bg, var(--card))",
-                border: "1px solid var(--border)",
-                borderRadius: 20,
-                padding: "5px 12px",
-                cursor: "pointer",
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                transition: "all 0.15s",
-                flexShrink: 0,
-                letterSpacing: "0.04em",
-              }}
-            >
-              {theme === "dark" ? "LIGHT" : "DARK"}
-            </button>
+          {/* 데스크탑 우측 설명 */}
+          <div className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            13F Filing · Live Markets · AI Insight
           </div>
         </div>
       </header>
