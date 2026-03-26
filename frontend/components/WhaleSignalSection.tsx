@@ -2,14 +2,14 @@
 import { PieChart, Pie, Cell } from "recharts";
 import { WhaleSignal } from "@/types";
 
-type Tab = "signal" | "stocks" | "crypto" | "realestate" | "commodities";
+type Tab = "signal" | "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 
 const ASSET_TAB_MAP: Record<string, Tab | null> = {
   "주식":   "stocks",
   "코인":   "crypto",
   "부동산": "realestate",
   "금/광물": "commodities",
-  "채권":   null,
+  "채권":   "bonds",
 };
 
 // 텍스트 내 투자 키워드 → 탭 매핑 (긴 것 먼저 — 부분 매칭 방지)
@@ -21,6 +21,7 @@ const KEYWORD_TAB: { keyword: string; tab: Tab }[] = [
   { keyword: "부동산",   tab: "realestate" },
   { keyword: "주식",     tab: "stocks" },
   { keyword: "코인",     tab: "crypto" },
+  { keyword: "채권",     tab: "bonds" },
 ];
 
 function renderLinkedText(

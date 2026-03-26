@@ -2,6 +2,33 @@
 import { useState } from "react";
 import { MoneyFlowAsset, KoreaRates } from "@/types";
 
+// 데이터 없음 표시 + 통상 범위 툴팁
+function NullVal({ label, range }: { label: string; range: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, cursor: "help" }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={{ color: "var(--text-muted)", fontSize: 14 }}>—</span>
+      <span style={{ fontSize: 10, color: "var(--text-muted)", borderBottom: "1px dotted var(--text-muted)" }}>데이터 없음</span>
+      {show && (
+        <span style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          zIndex: 200, background: "#1a2235", border: "1px solid #2a3a55",
+          borderRadius: 8, padding: "8px 12px", fontSize: 11, color: "#94a3b8",
+          whiteSpace: "nowrap", lineHeight: 1.6, pointerEvents: "none",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+        }}>
+          <strong style={{ color: "#c8def0" }}>{label}</strong> 데이터를 불러오지 못했습니다.<br />
+          통상 범위: <strong style={{ color: "#5b9ec9" }}>{range}</strong>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function Tip({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   return (
@@ -90,8 +117,9 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
                 KOR 기준금리
+                <Tip text="한국은행 금융통화위원회가 결정하는 정책금리. 통상 2.0~3.5% 범위에서 변동합니다." />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.base_rate != null ? `${resolvedKoreaRates.base_rate.toFixed(2)}%` : "—"}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.base_rate != null ? `${resolvedKoreaRates.base_rate.toFixed(2)}%` : <NullVal label="한국 기준금리" range="2.0~3.5%" />}</div>
             </div>
             {/* Fed 금리 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
@@ -104,7 +132,7 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
                 국고채 3년
                 <Tip text="정부가 발행하는 3년 만기 채권. 중기 시장금리의 기준점으로 은행 대출금리·회사채 등에 영향을 줍니다." />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_3y != null ? `${resolvedKoreaRates.treasury_3y.toFixed(2)}%` : "—"}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_3y != null ? `${resolvedKoreaRates.treasury_3y.toFixed(2)}%` : <NullVal label="국고채 3년" range="2.5~4.5%" />}</div>
             </div>
             {/* 국고채 10년 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
@@ -112,7 +140,7 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
                 국고채 10년
                 <Tip text="정부가 발행하는 10년 만기 채권. 장기 경기 전망과 인플레이션 기대치를 반영합니다. 미국 10년물과의 차이(스프레드)도 중요 지표입니다." />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_10y != null ? `${resolvedKoreaRates.treasury_10y.toFixed(2)}%` : "—"}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_10y != null ? `${resolvedKoreaRates.treasury_10y.toFixed(2)}%` : <NullVal label="국고채 10년" range="3.0~5.0%" />}</div>
             </div>
             {/* CD 91일 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
@@ -120,7 +148,7 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
                 CD 91일
                 <Tip text="양도성예금증서(Certificate of Deposit). 은행이 발행하는 단기 채권으로 변동금리 대출(주택담보대출 등)의 기준금리로 사용됩니다." />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.cd_rate != null ? `${resolvedKoreaRates.cd_rate.toFixed(2)}%` : "—"}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.cd_rate != null ? `${resolvedKoreaRates.cd_rate.toFixed(2)}%` : <NullVal label="CD 91일" range="3.0~4.5%" />}</div>
             </div>
             {/* 원/달러 환율 — 변동성 포함 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>

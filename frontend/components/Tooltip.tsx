@@ -22,7 +22,7 @@ export default function Tooltip({
       {visible && (
         <div style={{
           position: "absolute",
-          bottom: "calc(100% + 8px)",
+          top: "calc(100% + 8px)",
           left: "50%",
           transform: "translateX(-50%)",
           width,
@@ -38,15 +38,15 @@ export default function Tooltip({
           pointerEvents: "none",
           whiteSpace: "pre-wrap",
         }}>
-          {/* 말풍선 꼬리 */}
+          {/* 말풍선 꼬리 (위쪽) */}
           <div style={{
             position: "absolute",
-            top: "100%", left: "50%",
+            bottom: "100%", left: "50%",
             transform: "translateX(-50%)",
             width: 0, height: 0,
             borderLeft: "6px solid transparent",
             borderRight: "6px solid transparent",
-            borderTop: "6px solid #1E3550",
+            borderBottom: "6px solid #1E3550",
           }} />
           {content}
         </div>

@@ -167,22 +167,24 @@ export default function BondsSection({
                 onMouseEnter={e => (e.currentTarget.style.background = "var(--card-hover)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "var(--card)")}
               >
-                {n.image_url && (
-                  <div style={{ width: "100%", height: 200, overflow: "hidden", background: "var(--border)" }}>
-                    <img
-                      src={n.image_url}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  </div>
-                )}
-                <div style={{ padding: "14px 16px" }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.5 }}>
-                    {n.title}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {n.source} · {new Date(n.published_at).toLocaleDateString("ko-KR")}
+                <div style={{ display: "flex", gap: 14, padding: "14px 16px", alignItems: "flex-start" }}>
+                  {n.image_url && (
+                    <div style={{ width: 100, height: 76, flexShrink: 0, borderRadius: 8, overflow: "hidden", background: "var(--border)" }}>
+                      <img
+                        src={n.image_url}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = "none"; }}
+                      />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.45 }}>
+                      {n.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      {n.source} · {new Date(n.published_at).toLocaleDateString("ko-KR")}
+                    </div>
                   </div>
                 </div>
               </a>
