@@ -96,6 +96,12 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 
+/* 퀵스탯 바 스크롤바 숨김 */
+.quickstat-bar {
+  scrollbar-width: none;
+}
+.quickstat-bar::-webkit-scrollbar { display: none; }
+
 /* 모바일 반응형 */
 @media (max-width: 768px) {
   .header-inner {

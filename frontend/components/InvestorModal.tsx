@@ -107,6 +107,18 @@ export default function InvestorModal({ investorId, onClose }: Props) {
                   포트폴리오
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {/* 컬럼 헤더 */}
+                  <div style={{
+                    display: "grid", gridTemplateColumns: "80px 1fr 80px 90px 90px 60px",
+                    padding: "6px 14px", marginBottom: 4,
+                  }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>티커</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>종목명</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textAlign: "right" as const }}>현재가</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textAlign: "right" as const }}>30일 수익</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textAlign: "right" as const }}>비중</span>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textAlign: "center" as const }}>동향</span>
+                  </div>
                   {data.portfolio.map(h => (
                     <div
                       key={h.ticker}
@@ -133,7 +145,7 @@ export default function InvestorModal({ investorId, onClose }: Props) {
                         {h.current_price ? `$${h.current_price.toLocaleString()}` : "-"}
                       </span>
                       <span style={{ fontSize: 13, textAlign: "right", color: h.change_30d_pct !== undefined && h.change_30d_pct !== null ? (h.change_30d_pct >= 0 ? "var(--green)" : "var(--red)") : "var(--text-muted)" }}>
-                        {h.change_30d_pct !== undefined && h.change_30d_pct !== null ? `${h.change_30d_pct >= 0 ? "+" : ""}${h.change_30d_pct.toFixed(1)}%` : "-"}
+                        {h.change_30d_pct !== undefined && h.change_30d_pct !== null ? `${h.change_30d_pct >= 0 ? "+" : ""}${h.change_30d_pct.toFixed(1)}% (30일)` : "-"}
                       </span>
                       <span style={{ fontSize: 12, textAlign: "right", color: "var(--text-muted)" }}>
                         비중 {h.weight}%

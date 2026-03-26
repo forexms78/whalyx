@@ -103,7 +103,15 @@ export default function Home() {
         <div className="header-inner" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* 로고 */}
           <div className="header-top-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 28, lineHeight: 1, filter: "drop-shadow(0 0 8px rgba(91,158,201,0.4))" }}>🐋</span>
+            {/* W 로고 마크 */}
+            <div style={{
+              width: 34, height: 34, borderRadius: 9,
+              background: "var(--accent)", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em" }}>W</span>
+            </div>
             <div>
               <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em" }}>Whalyx</span>
               <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>Whale Tracker</span>
@@ -143,20 +151,69 @@ export default function Home() {
                 background: "var(--toggle-bg, var(--card))",
                 border: "1px solid var(--border)",
                 borderRadius: 20,
-                padding: "5px 10px",
+                padding: "5px 12px",
                 cursor: "pointer",
-                fontSize: 16,
-                lineHeight: 1,
+                fontSize: 11,
+                fontWeight: 600,
                 color: "var(--text-secondary)",
                 transition: "all 0.15s",
                 flexShrink: 0,
+                letterSpacing: "0.04em",
               }}
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              {theme === "dark" ? "LIGHT" : "DARK"}
             </button>
           </div>
         </div>
       </header>
+
+      {/* ── Upbit 스타일 퀵스탯 티커 바 ── */}
+      {moneyFlow && (
+        <div style={{
+          borderBottom: "1px solid var(--border)",
+          background: "var(--bg-2)",
+        }}>
+          <div style={{
+            maxWidth: 1280, margin: "0 auto", padding: "0 24px",
+            height: 38, display: "flex", alignItems: "center", gap: 0,
+            overflowX: "auto", scrollbarWidth: "none",
+          }}>
+            {/* Fed 금리 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 18px", borderRight: "1px solid var(--border)", flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>Fed Rate</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{moneyFlow.fed_rate}%</span>
+              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>3.50–3.75 target</span>
+            </div>
+            {/* 자산별 30일 수익률 */}
+            {moneyFlow.assets.slice(0, 4).map(asset => {
+              const chg = asset.change_30d ?? 0;
+              const isUp = chg >= 0;
+              return (
+                <div key={asset.name} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", borderRight: "1px solid var(--border)", flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>{asset.name.split(" ")[0]}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: isUp ? "var(--green)" : "var(--red)" }}>
+                    {isUp ? "+" : ""}{chg.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
+            {/* 원달러 환율 */}
+            {moneyFlow.korea_rates?.usd_krw && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>KRW/USD</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+                  {moneyFlow.korea_rates.usd_krw.toLocaleString("ko-KR")}
+                </span>
+                {moneyFlow.korea_rates.usd_krw_change_1d != null && (
+                  <span style={{ fontSize: 10, fontWeight: 600, color: moneyFlow.korea_rates.usd_krw_change_1d >= 0 ? "var(--red)" : "var(--green)" }}>
+                    {moneyFlow.korea_rates.usd_krw_change_1d >= 0 ? "+" : ""}{moneyFlow.korea_rates.usd_krw_change_1d.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px" }}>
         {/* ── Whale Signal 탭 ── */}

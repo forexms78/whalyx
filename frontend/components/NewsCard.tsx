@@ -4,10 +4,9 @@ import { NewsItem } from "@/types";
 
 interface Props {
   news: NewsItem;
-  fallbackEmoji?: string;
 }
 
-export default function NewsCard({ news, fallbackEmoji = "📰" }: Props) {
+export default function NewsCard({ news }: Props) {
   const [imgError, setImgError] = useState(false);
   const hasImage = !!news.image_url && !imgError;
 
@@ -36,7 +35,12 @@ export default function NewsCard({ news, fallbackEmoji = "📰" }: Props) {
               onError={() => setImgError(true)}
             />
           ) : (
-            <span style={{ fontSize: 28 }}>{fallbackEmoji}</span>
+            <span style={{
+              fontSize: 13, fontWeight: 700, color: "var(--accent)",
+              letterSpacing: "-0.02em",
+            }}>
+              {news.source?.slice(0, 3).toUpperCase() || "NEWS"}
+            </span>
           )}
         </div>
 

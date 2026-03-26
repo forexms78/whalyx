@@ -44,7 +44,7 @@ export default function RealEstateSection({ indicators, news }: Props) {
       {news.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {news.map((n, i) => (
-            <NewsCard key={i} news={n} fallbackEmoji="🏠" />
+            <NewsCard key={i} news={n} />
           ))}
         </div>
       ) : (

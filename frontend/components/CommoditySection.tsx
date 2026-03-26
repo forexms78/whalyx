@@ -127,7 +127,7 @@ export default function CommoditySection({ commodities, news, usd_krw }: Props) 
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>광물 최신 뉴스</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {news.map((n, i) => (
-              <NewsCard key={i} news={n} fallbackEmoji="⛏️" />
+              <NewsCard key={i} news={n} />
             ))}
           </div>
         </div>

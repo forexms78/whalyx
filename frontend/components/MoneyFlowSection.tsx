@@ -62,7 +62,12 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
           fontSize: 28, width: 48, height: 48, borderRadius: 12,
           background: `${signalColor}22`, display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {rate_signal.level === "high" ? "🔴" : rate_signal.level === "low" ? "🟢" : "🟡"}
+          {rate_signal.level === "high"
+            ? <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--red)",marginRight:6}} />
+            : rate_signal.level === "low"
+            ? <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--green)",marginRight:6}} />
+            : <span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"var(--gold)",marginRight:6}} />
+          }
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: signalColor, marginBottom: 4 }}>
@@ -84,13 +89,13 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
             {/* 기준금리 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
-                🇰🇷 기준금리
+                KOR 기준금리
               </div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.base_rate != null ? `${resolvedKoreaRates.base_rate.toFixed(2)}%` : "—"}</div>
             </div>
             {/* Fed 금리 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>🇺🇸 Fed 금리</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>US Fed 금리</div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>{fed_rate}%</div>
             </div>
             {/* 국고채 3년 */}
@@ -119,7 +124,7 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
             </div>
             {/* 원/달러 환율 — 변동성 포함 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>💵 원/달러</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>KRW/USD</div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>
                 {resolvedKoreaRates.usd_krw != null ? `${resolvedKoreaRates.usd_krw.toLocaleString("ko-KR")}원` : "—"}
               </div>
