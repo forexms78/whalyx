@@ -49,7 +49,9 @@ interface MarketsProps {
   // 채권
   bondData: { data: BondData; news: NewsItem[] } | null;
   loadingBonds: boolean;
+  bondError: boolean;
   onLoadBonds: () => void;
+  onRetryBonds: () => void;
 }
 
 export default function MarketsSection(props: MarketsProps) {
@@ -174,6 +176,24 @@ export default function MarketsSection(props: MarketsProps) {
           {props.loadingBonds ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} height={80} />)}
+            </div>
+          ) : props.bondError ? (
+            <div style={{
+              textAlign: "center", padding: "60px 0",
+              color: "var(--text-muted)", fontSize: 13,
+            }}>
+              채권 데이터를 불러오지 못했습니다.
+              <br />
+              <button
+                onClick={props.onRetryBonds}
+                style={{
+                  marginTop: 12, padding: "6px 16px", borderRadius: 8,
+                  background: "var(--accent-dim)", color: "var(--accent)",
+                  border: "1px solid var(--accent-glow)", cursor: "pointer", fontSize: 12,
+                }}
+              >
+                다시 시도
+              </button>
             </div>
           ) : props.bondData ? (
             <BondsSection data={props.bondData.data} news={props.bondData.news} />

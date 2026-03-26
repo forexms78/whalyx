@@ -42,6 +42,7 @@ export default function Home() {
 
   const [bondData, setBondData] = useState<{ data: BondData; news: NewsItem[] } | null>(null);
   const [loadingBonds, setLoadingBonds] = useState(false);
+  const [bondError, setBondError] = useState(false);
 
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
@@ -96,8 +97,13 @@ export default function Home() {
 
   function loadBonds() {
     if (bondData) return;
+    setBondError(false);
     setLoadingBonds(true);
-    fetch(`${API}/bonds`).then(r => r.json()).then(setBondData).finally(() => setLoadingBonds(false));
+    fetch(`${API}/bonds`)
+      .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then(setBondData)
+      .catch(() => setBondError(true))
+      .finally(() => setLoadingBonds(false));
   }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -256,7 +262,9 @@ export default function Home() {
               onLoadCommodity={loadCommodity}
               bondData={bondData}
               loadingBonds={loadingBonds}
+              bondError={bondError}
               onLoadBonds={loadBonds}
+              onRetryBonds={() => { setBondData(null); setBondError(false); loadBonds(); }}
             />
           </div>
         )}
