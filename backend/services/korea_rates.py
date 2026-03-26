@@ -16,33 +16,35 @@ _session = requests.Session()
 _session.headers.update({"User-Agent": "Mozilla/5.0"})
 
 
-def _get_bok(stat_code: str, item_code: str, cycle: str = "D") -> float | None:
-    """한국은행 ECOS API에서 최신 통계값 조회 (D=일별)"""
-    cache_key = f"{stat_code}_{item_code}"
+def _get_bok_rows(stat_code: str, item_code: str, cycle: str = "D", count: int = 5) -> list[float]:
+    """한국은행 ECOS API에서 최근 N개 값 조회 (D=일별)"""
+    cache_key = f"{stat_code}_{item_code}_rows{count}"
     cached = _cache.get(cache_key)
     if cached and time.time() - cached[1] < CACHE_TTL:
         return cached[0]
 
     try:
         end_date = datetime.today().strftime("%Y%m%d")
-        start_date = (datetime.today() - timedelta(days=14)).strftime("%Y%m%d")
+        start_date = (datetime.today() - timedelta(days=30)).strftime("%Y%m%d")
         url = (
-            f"{BOK_BASE}/{BOK_API_KEY}/json/kr/1/5"
+            f"{BOK_BASE}/{BOK_API_KEY}/json/kr/1/{count + 10}"
             f"/{stat_code}/{cycle}/{start_date}/{end_date}/{item_code}"
         )
         r = _session.get(url, timeout=8)
         r.raise_for_status()
         data = r.json()
         rows = data.get("StatisticSearch", {}).get("row", [])
-        if not rows:
-            return None
-        latest = rows[-1].get("DATA_VALUE", "")
-        value = float(latest) if latest else None
-        if value is not None:
-            _cache[cache_key] = (value, time.time())
-        return value
+        values = [float(row["DATA_VALUE"]) for row in rows if row.get("DATA_VALUE")]
+        if values:
+            _cache[cache_key] = (values, time.time())
+        return values
     except Exception:
-        return None
+        return []
+
+
+def _get_bok(stat_code: str, item_code: str, cycle: str = "D") -> float | None:
+    rows = _get_bok_rows(stat_code, item_code, cycle, count=5)
+    return rows[-1] if rows else None
 
 
 def get_korea_rates() -> dict:
@@ -55,14 +57,19 @@ def get_korea_rates() -> dict:
     treasury_10y = _get_bok("817Y002", "010210000", "D")
     # CD 91일물: 817Y002 / 010502000
     cd_rate = _get_bok("817Y002", "010502000", "D")
-    # 원/달러 환율(매매기준율): 731Y001 / 0000001
-    usd_krw = _get_bok("731Y001", "0000001", "D")
+    # 원/달러 환율(매매기준율): 731Y001 / 0000001 — 전일 대비 변동률 계산
+    krw_rows = _get_bok_rows("731Y001", "0000001", "D", count=5)
+    usd_krw = krw_rows[-1] if krw_rows else None
+    usd_krw_change_1d = None
+    if len(krw_rows) >= 2 and krw_rows[-2]:
+        usd_krw_change_1d = round((krw_rows[-1] - krw_rows[-2]) / krw_rows[-2] * 100, 2)
 
     return {
-        "base_rate":    base_rate,     # 기준금리 (연%)
-        "treasury_3y":  treasury_3y,   # 국고채 3년 (연%)
-        "treasury_10y": treasury_10y,  # 국고채 10년 (연%)
-        "cd_rate":      cd_rate,       # CD 91일 (연%)
-        "usd_krw":      usd_krw,       # 원/달러 환율 (원)
-        "updated_at":   datetime.now().isoformat(),
+        "base_rate":         base_rate,          # 기준금리 (연%)
+        "treasury_3y":       treasury_3y,        # 국고채 3년 (연%)
+        "treasury_10y":      treasury_10y,       # 국고채 10년 (연%)
+        "cd_rate":           cd_rate,            # CD 91일 (연%)
+        "usd_krw":           usd_krw,            # 원/달러 환율 (원)
+        "usd_krw_change_1d": usd_krw_change_1d,  # 전일 대비 변동률 (%)
+        "updated_at":        datetime.now().isoformat(),
     }

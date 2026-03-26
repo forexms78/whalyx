@@ -4,10 +4,16 @@ import { RecommendedStock } from "@/types";
 interface Props {
   recommendations: { buy: RecommendedStock[]; sell: RecommendedStock[] };
   onSelect: (ticker: string) => void;
+  usd_krw?: number | null;
 }
 
-export default function RecommendSection({ recommendations, onSelect }: Props) {
+export default function RecommendSection({ recommendations, onSelect, usd_krw }: Props) {
   const { buy, sell } = recommendations;
+  const toKrw = (usd: number) => {
+    const v = usd * (usd_krw ?? 0);
+    if (v >= 1e6) return `₩${(v / 1e4).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}만`;
+    return `₩${Math.round(v).toLocaleString("ko-KR")}`;
+  };
   if (!buy.length && !sell.length) return null;
 
   const Card = ({ item, type }: { item: RecommendedStock; type: "buy" | "sell" }) => {
@@ -44,7 +50,10 @@ export default function RecommendSection({ recommendations, onSelect }: Props) {
             </span>
           </div>
           {item.current_price && (
-            <span style={{ fontSize: 14, fontWeight: 600 }}>${item.current_price.toLocaleString()}</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>${item.current_price.toLocaleString()}</div>
+              {usd_krw && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{toKrw(item.current_price)}</div>}
+            </div>
           )}
         </div>
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>

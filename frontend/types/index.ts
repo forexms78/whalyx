@@ -157,12 +157,13 @@ export interface WhaleSignal {
 }
 
 export interface KoreaRates {
-  base_rate:    number | null;
-  treasury_3y:  number | null;
-  treasury_10y: number | null;
-  cd_rate:      number | null;
-  usd_krw:      number | null;
-  updated_at:   string;
+  base_rate:         number | null;
+  treasury_3y:       number | null;
+  treasury_10y:      number | null;
+  cd_rate:           number | null;
+  usd_krw:           number | null;
+  usd_krw_change_1d: number | null;
+  updated_at:        string;
 }
 
 export interface MoneyFlowData {

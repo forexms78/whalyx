@@ -147,11 +147,11 @@ export default function Home() {
         {activeTab === "stocks" && (
           <div className="fade-in">
             {/* 핫 종목 */}
-            <HotStocksBar stocks={hotStocks} onSelect={setSelectedStock} />
+            <HotStocksBar stocks={hotStocks} onSelect={setSelectedStock} usd_krw={moneyFlow?.korea_rates?.usd_krw} />
 
             {/* 매수/매도 추천 */}
             {recommendations && (
-              <RecommendSection recommendations={recommendations} onSelect={setSelectedStock} />
+              <RecommendSection recommendations={recommendations} onSelect={setSelectedStock} usd_krw={moneyFlow?.korea_rates?.usd_krw} />
             )}
 
             {/* 투자자 그리드 */}

@@ -4,9 +4,15 @@ import { HotStock } from "@/types";
 interface Props {
   stocks: HotStock[];
   onSelect: (ticker: string) => void;
+  usd_krw?: number | null;
 }
 
-export default function HotStocksBar({ stocks, onSelect }: Props) {
+export default function HotStocksBar({ stocks, onSelect, usd_krw }: Props) {
+  const toKrw = (usd: number) => {
+    const v = usd * (usd_krw ?? 0);
+    if (v >= 1e6) return `₩${(v / 1e4).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}만`;
+    return `₩${Math.round(v).toLocaleString("ko-KR")}`;
+  };
   if (!stocks.length) return null;
 
   return (
@@ -47,9 +53,10 @@ export default function HotStocksBar({ stocks, onSelect }: Props) {
             >
               <div style={{ fontWeight: 700, fontSize: 13, color: "var(--accent)", marginBottom: 3 }}>{s.ticker}</div>
               {s.current_price && (
-                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>
-                  ${s.current_price.toLocaleString()}
-                </div>
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>${s.current_price.toLocaleString()}</div>
+                  {usd_krw && <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>{toKrw(s.current_price)}</div>}
+                </>
               )}
               {s.change_30d_pct !== undefined && (
                 <div style={{ fontSize: 11, color: isUp ? "var(--green)" : "var(--red)", fontWeight: 500 }}>
