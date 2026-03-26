@@ -16,6 +16,7 @@ from backend.services.financial import get_stock_data, get_multiple_stocks_paral
 from backend.services.ai_summary import generate_investor_insight, generate_stock_insight
 from backend.services.coins import get_coin_markets, get_coin_detail
 from backend.services.commodities import get_all_commodities
+from backend.services.whale_signal import get_whale_signal
 
 app = FastAPI(title="Whalyx API", version="2.0.0")
 
@@ -305,3 +306,53 @@ async def money_flow():
         signal = {"level": "low", "message": "저금리 구간: 성장주·코인·부동산 강세 환경. 리스크 자산 비중 확대 고려."}
 
     return {"assets": assets, "rate_signal": signal, "fed_rate": 5.25}
+
+
+# ─────────────────────────────────────────────
+# 고래 신호 (Whale Signal)
+# ─────────────────────────────────────────────
+
+@app.get("/whale-signal")
+async def whale_signal():
+    """현재 시장 상황 종합 분석 — 거대한 돈이 어디로 이동하는가"""
+    macro_tickers = ["^TNX", "^IRX", "GLD", "SPY", "TLT"]
+    prices = await get_multiple_stocks_parallel(macro_tickers)
+    coins = await _run(get_coin_markets)
+
+    tnx = prices.get("^TNX", {})
+    spy = prices.get("SPY", {})
+    gld = prices.get("GLD", {})
+    tlt = prices.get("TLT", {})
+    btc = next((c for c in coins if c["symbol"] == "BTC"), {})
+
+    assets = [
+        {
+            "category": "주식",
+            "name": "S&P 500 (SPY)",
+            "change_30d": spy.get("change_30d_pct"),
+        },
+        {
+            "category": "채권",
+            "name": "장기채 (TLT)",
+            "change_30d": tlt.get("change_30d_pct"),
+        },
+        {
+            "category": "금",
+            "name": "금 (GLD ETF)",
+            "change_30d": gld.get("change_30d_pct"),
+        },
+        {
+            "category": "코인",
+            "name": "Bitcoin (BTC)",
+            "change_30d": btc.get("price_change_30d") if btc else None,
+        },
+        {
+            "category": "부동산",
+            "name": "서울 아파트",
+            "change_30d": 1.2,
+        },
+    ]
+
+    fed_rate = 5.25
+    signal = await get_whale_signal(assets, fed_rate)
+    return signal

@@ -137,3 +137,19 @@ export interface MoneyFlowAsset {
   color: string;
   icon: string;
 }
+
+export interface AssetSignal {
+  asset: string;
+  label: "Strong Buy" | "Buy" | "Neutral" | "Avoid";
+  score: number;
+  color: string;
+  picks: string[];
+}
+
+export interface WhaleSignal {
+  headline: string;
+  signals: AssetSignal[];
+  ai_insight: string;
+  fed_rate: number;
+  updated_at: string;
+}

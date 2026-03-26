@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { InvestorSummary, HotStock, RecommendedStock, CoinData, RealEstateIndicator, MoneyFlowAsset, NewsItem, CommodityData } from "@/types";
+import { InvestorSummary, HotStock, RecommendedStock, CoinData, RealEstateIndicator, MoneyFlowAsset, NewsItem, CommodityData, WhaleSignal } from "@/types";
 import InvestorCard from "@/components/InvestorCard";
 import InvestorModal from "@/components/InvestorModal";
 import StockModal from "@/components/StockModal";
@@ -12,13 +12,14 @@ import RealEstateSection from "@/components/RealEstateSection";
 import MoneyFlowSection from "@/components/MoneyFlowSection";
 import CommoditySection from "@/components/CommoditySection";
 import SkeletonCard from "@/components/SkeletonCard";
+import WhaleSignalSection from "@/components/WhaleSignalSection";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-type Tab = "stocks" | "crypto" | "realestate" | "commodities";
+type Tab = "signal" | "stocks" | "crypto" | "realestate" | "commodities";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("stocks");
+  const [activeTab, setActiveTab] = useState<Tab>("signal");
   const [investors, setInvestors] = useState<InvestorSummary[]>([]);
   const [hotStocks, setHotStocks] = useState<HotStock[]>([]);
   const [recommendations, setRecommendations] = useState<{ buy: RecommendedStock[]; sell: RecommendedStock[] } | null>(null);
@@ -27,6 +28,7 @@ export default function Home() {
   const [reData, setReData] = useState<{ indicators: RealEstateIndicator[]; news: NewsItem[] } | null>(null);
   const [commodityData, setCommodityData] = useState<{ commodities: CommodityData[]; news: NewsItem[] } | null>(null);
   const [moneyFlow, setMoneyFlow] = useState<{ assets: MoneyFlowAsset[]; rate_signal: { level: string; message: string }; fed_rate: number } | null>(null);
+  const [whaleSignal, setWhaleSignal] = useState<WhaleSignal | null>(null);
   const [loadingInvestors, setLoadingInvestors] = useState(true);
   const [loadingTab, setLoadingTab] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
@@ -39,11 +41,13 @@ export default function Home() {
       fetch(`${API}/stocks/hot`).then(r => r.json()),
       fetch(`${API}/stocks/recommendations`).then(r => r.json()),
       fetch(`${API}/money-flow`).then(r => r.json()),
-    ]).then(([invData, stockData, recData, flowData]) => {
+      fetch(`${API}/whale-signal`).then(r => r.json()),
+    ]).then(([invData, stockData, recData, flowData, signalData]) => {
       setInvestors(invData.investors || []);
       setHotStocks(stockData.stocks || []);
       setRecommendations(recData);
       setMoneyFlow(flowData);
+      setWhaleSignal(signalData);
     }).finally(() => setLoadingInvestors(false));
   }, []);
 
@@ -71,6 +75,7 @@ export default function Home() {
   }, [activeTab]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
+    { id: "signal", label: "Whale Signal", icon: "🐋" },
     { id: "stocks", label: "주식", icon: "📊" },
     { id: "crypto", label: "코인", icon: "₿" },
     { id: "realestate", label: "부동산", icon: "🏠" },
@@ -126,8 +131,19 @@ export default function Home() {
       </header>
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px" }}>
-        {/* 돈의 흐름 바 (항상 표시) */}
-        {moneyFlow && <MoneyFlowSection data={moneyFlow} />}
+        {/* ── Whale Signal 탭 ── */}
+        {activeTab === "signal" && (
+          <div className="fade-in">
+            {!whaleSignal ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+                {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} height={180} />)}
+              </div>
+            ) : (
+              <WhaleSignalSection data={whaleSignal} />
+            )}
+            {moneyFlow && <MoneyFlowSection data={moneyFlow} />}
+          </div>
+        )}
 
         {/* ── 주식 탭 ── */}
         {activeTab === "stocks" && (
