@@ -20,76 +20,72 @@ function scoreInfo(score: number) {
   return              { label: "Super Sell",  color: "#ef4444", bg: "rgba(239,68,68,0.1)" };
 }
 
-// ── 반원형 게이지 SVG (스트로크 방식 — 하드코딩 색상으로 안정적 렌더링) ──
+// ── 반원형 게이지 SVG — 이미지2 스타일 (파랑→보라→빨강 그라디언트 + 흰 원 위치 표시) ──
 function SemiGauge({ score }: { score: number }) {
-  const cx = 100, cy = 90, r = 68, sw = 14;
+  const cx = 100, cy = 88, r = 66, sw = 13;
 
-  // score → 반원 위 좌표: 0=왼쪽(9시), 100=오른쪽(3시), 50=위(12시)
   function arcPath(s1: number, s2: number): string {
     if (s1 >= s2) return "";
     const a1 = (1 - s1 / 100) * Math.PI;
     const a2 = (1 - s2 / 100) * Math.PI;
-    const x1 = cx + r * Math.cos(a1);
-    const y1 = cy - r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2);
-    const y2 = cy - r * Math.sin(a2);
+    const x1 = (cx + r * Math.cos(a1)).toFixed(2);
+    const y1 = (cy - r * Math.sin(a1)).toFixed(2);
+    const x2 = (cx + r * Math.cos(a2)).toFixed(2);
+    const y2 = (cy - r * Math.sin(a2)).toFixed(2);
     const large = (s2 - s1) > 50 ? 1 : 0;
-    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 0 ${x2} ${y2}`;
   }
-
-  const zones = [
-    { s1: 0,  s2: 25,  color: "#ef4444" },
-    { s1: 25, s2: 40,  color: "#f97316" },
-    { s1: 40, s2: 55,  color: "#eab308" },
-    { s1: 55, s2: 75,  color: "#84cc16" },
-    { s1: 75, s2: 100, color: "#10b981" },
-  ];
 
   const info = scoreInfo(score);
 
-  // 바늘 끝 좌표
-  const na = (1 - score / 100) * Math.PI;
-  const nLen = r - sw / 2 - 4;
-  const nx = (cx + nLen * Math.cos(na)).toFixed(2);
-  const ny = (cy - nLen * Math.sin(na)).toFixed(2);
+  // 현재 점수의 위치 (흰 원 표시용)
+  const pa = (1 - score / 100) * Math.PI;
+  const px = (cx + r * Math.cos(pa)).toFixed(2);
+  const py = (cy - r * Math.sin(pa)).toFixed(2);
 
-  // 눈금 라벨 위치 (바깥쪽)
-  const tickLabels = [
-    { s: 0,  label: "SS" },
-    { s: 50, label: "N" },
-    { s: 100, label: "SB" },
-  ];
+  // 눈금 도트 11개 (이미지2의 작은 점들)
+  const dotScores = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
   return (
-    <svg viewBox="0 0 200 118" style={{ width: "100%", maxWidth: 200, display: "block" }}>
-      {/* 배경 트랙 */}
+    <svg viewBox="0 0 200 108" style={{ width: "100%", maxWidth: 200, display: "block" }}>
+      <defs>
+        {/* 파랑→보라→빨강 수평 그라디언트 (호의 좌→중→우와 정확히 매핑) */}
+        <linearGradient id="gaugeGrad" x1={cx - r} y1="0" x2={cx + r} y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#3b82f6" />
+          <stop offset="50%"  stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#ef4444" />
+        </linearGradient>
+        {/* 흰 원 그림자 */}
+        <filter id="dotShadow" x="-80%" y="-80%" width="260%" height="260%">
+          <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000000" floodOpacity="0.18" />
+        </filter>
+      </defs>
+
+      {/* 배경 트랙 (연한 회색) */}
       <path d={arcPath(0, 100)} fill="none" stroke="#d1dce8" strokeWidth={sw + 2} strokeLinecap="butt" />
-      {/* 구역 색상 (연하게) */}
-      {zones.map(z => (
-        <path key={z.s1} d={arcPath(z.s1, z.s2)} fill="none" stroke={z.color} strokeWidth={sw} opacity={0.25} strokeLinecap="butt" />
-      ))}
-      {/* 현재 점수까지 진한 호 */}
-      {score > 0 && (
-        <path d={arcPath(0, score)} fill="none" stroke={info.color} strokeWidth={sw} strokeLinecap="round" />
-      )}
-      {/* 눈금 라벨 */}
-      {tickLabels.map(t => {
-        const ta = (1 - t.s / 100) * Math.PI;
-        const lx = cx + (r + sw) * Math.cos(ta);
-        const ly = cy - (r + sw) * Math.sin(ta);
-        return (
-          <text key={t.s} x={lx.toFixed(1)} y={ly.toFixed(1)} textAnchor="middle"
-            fontSize={8} fill="#94a3b8" fontWeight="600">{t.label}</text>
-        );
+
+      {/* 그라디언트 호 */}
+      <path d={arcPath(0, 100)} fill="none" stroke="url(#gaugeGrad)" strokeWidth={sw} strokeLinecap="butt" />
+
+      {/* 눈금 도트 (흰 원, 호 위에 오버레이) */}
+      {dotScores.map(s => {
+        const da = (1 - s / 100) * Math.PI;
+        const dx = (cx + r * Math.cos(da)).toFixed(2);
+        const dy = (cy - r * Math.sin(da)).toFixed(2);
+        return <circle key={s} cx={dx} cy={dy} r={2.5} fill="#ffffff" />;
       })}
-      {/* 바늘 */}
-      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={info.color} strokeWidth={2.5} strokeLinecap="round" />
-      {/* 중앙 원 */}
-      <circle cx={cx} cy={cy} r={7} fill={info.color} />
-      <circle cx={cx} cy={cy} r={3} fill="#ffffff" />
-      {/* 점수 */}
-      <text x={cx} y={cy + 18} textAnchor="middle" fontSize={26} fontWeight="800" fill={info.color}>{score}</text>
-      <text x={cx} y={cy + 30} textAnchor="middle" fontSize={9} fill="#94a3b8">/100</text>
+
+      {/* 현재 점수 위치 — 흰 원 + 컬러 내부 원 */}
+      <circle cx={px} cy={py} r={10} fill="#ffffff" filter="url(#dotShadow)" />
+      <circle cx={px} cy={py} r={5}  fill={info.color} />
+
+      {/* 중앙 점수 숫자 (크고 굵게) */}
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize={32} fontWeight="800" fill={info.color}>{score}</text>
+
+      {/* 0 / 50 / 100 레이블 */}
+      <text x={cx - r + 4}  y={cy + 20} textAnchor="middle" fontSize={9} fill="#94a3b8">0</text>
+      <text x={cx}          y={cy - r - 6} textAnchor="middle" fontSize={9} fill="#94a3b8">50</text>
+      <text x={cx + r - 4}  y={cy + 20} textAnchor="middle" fontSize={9} fill="#94a3b8">100</text>
     </svg>
   );
 }
