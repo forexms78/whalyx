@@ -18,6 +18,7 @@ from backend.services.coins import get_coin_markets, get_coin_detail
 from backend.services.commodities import get_all_commodities
 from backend.services.whale_signal import get_whale_signal
 from backend.services.korea_rates import get_korea_rates
+from backend.services.fed_rate import get_fed_rate
 
 app = FastAPI(title="Whalyx API", version="2.0.0")
 
@@ -307,7 +308,8 @@ async def money_flow():
         signal = {"level": "low", "message": "저금리 구간: 성장주·코인·부동산 강세 환경. 리스크 자산 비중 확대 고려."}
 
     kor = await asyncio.get_event_loop().run_in_executor(_executor, get_korea_rates)
-    return {"assets": assets, "rate_signal": signal, "fed_rate": 5.25, "korea_rates": kor}
+    fed_rate = await asyncio.get_event_loop().run_in_executor(_executor, get_fed_rate)
+    return {"assets": assets, "rate_signal": signal, "fed_rate": fed_rate, "korea_rates": kor}
 
 
 # ─────────────────────────────────────────────
@@ -366,6 +368,6 @@ async def whale_signal():
         },
     ]
 
-    fed_rate = 5.25
+    fed_rate = await asyncio.get_event_loop().run_in_executor(_executor, get_fed_rate)
     signal = await get_whale_signal(assets, fed_rate)
     return signal

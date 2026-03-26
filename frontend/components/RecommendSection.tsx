@@ -83,7 +83,7 @@ export default function RecommendSection({ recommendations, onSelect, usd_krw }:
           복수의 전문 투자자가 동시 매수/매도 중인 종목
         </span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="recommend-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* 매수 추천 */}
         <div>
           <div style={{

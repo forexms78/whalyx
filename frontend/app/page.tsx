@@ -33,6 +33,14 @@ export default function Home() {
   const [loadingTab, setLoadingTab] = useState(false);
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  // 테마 토글
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+  };
 
   // 투자자 + 핫종목 + 추천 (초기 로드)
   useEffect(() => {
@@ -76,12 +84,12 @@ export default function Home() {
     }
   }, [activeTab]);
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: "signal", label: "Whale Signal", icon: "🐋" },
-    { id: "stocks", label: "주식", icon: "📊" },
-    { id: "crypto", label: "코인", icon: "₿" },
-    { id: "realestate", label: "부동산", icon: "🏠" },
-    { id: "commodities", label: "광물", icon: "⛏️" },
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "signal", label: "Whale Signal" },
+    { id: "stocks", label: "주식" },
+    { id: "crypto", label: "코인" },
+    { id: "realestate", label: "부동산" },
+    { id: "commodities", label: "광물" },
   ];
 
   return (
@@ -90,12 +98,12 @@ export default function Home() {
       <header style={{
         borderBottom: "1px solid var(--border)",
         position: "sticky", top: 0, zIndex: 100,
-        background: "rgba(10,21,32,0.96)", backdropFilter: "blur(16px)",
+        background: "var(--header-bg)", backdropFilter: "blur(16px)",
       }}>
         <div className="header-inner" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* 로고 */}
           <div className="header-top-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 32, lineHeight: 1, filter: "drop-shadow(0 0 8px rgba(91,158,201,0.4))" }}>🐋</span>
+            <span style={{ fontSize: 28, lineHeight: 1, filter: "drop-shadow(0 0 8px rgba(91,158,201,0.4))" }}>🐋</span>
             <div>
               <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em" }}>Whalyx</span>
               <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>Whale Tracker</span>
@@ -107,23 +115,45 @@ export default function Home() {
             {tabs.map(tab => (
               <button
                 key={tab.id}
+                className="tab-btn"
                 onClick={() => setActiveTab(tab.id)}
                 style={{
                   background: activeTab === tab.id ? "var(--accent-dim)" : "transparent",
                   border: activeTab === tab.id ? "1px solid var(--accent-glow)" : "1px solid transparent",
-                  borderRadius: 8, padding: "6px 16px",
+                  borderRadius: 8, padding: "6px 14px",
                   color: activeTab === tab.id ? "var(--accent)" : "var(--text-secondary)",
-                  cursor: "pointer", fontSize: 14, fontWeight: activeTab === tab.id ? 600 : 400,
-                  display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s",
+                  cursor: "pointer", fontSize: 13, fontWeight: activeTab === tab.id ? 600 : 400,
+                  transition: "all 0.15s",
                 }}
               >
-                <span>{tab.icon}</span>{tab.label}
+                {tab.label}
               </button>
             ))}
           </nav>
 
-          <div className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-            13F Filing · Live Markets · AI Insight
+          {/* 우측: 테마 토글 + 설명 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+              13F Filing · Live Markets · AI Insight
+            </div>
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+              style={{
+                background: "var(--toggle-bg, var(--card))",
+                border: "1px solid var(--border)",
+                borderRadius: 20,
+                padding: "5px 10px",
+                cursor: "pointer",
+                fontSize: 16,
+                lineHeight: 1,
+                color: "var(--text-secondary)",
+                transition: "all 0.15s",
+                flexShrink: 0,
+              }}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
           </div>
         </div>
       </header>

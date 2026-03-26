@@ -1,8 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 @import "tailwindcss";
 
-:root {
-  /* Whalyx — 고래 아이콘 기반 팔레트 (딥 네이비 + 스틸 블루 + 앰버) */
+/* ── 다크 모드 (기본) ── */
+:root,
+[data-theme="dark"] {
   --bg: #0A1520;
   --bg-2: #0E1E30;
   --card: #12243A;
@@ -11,29 +12,60 @@
   --border-light: #2A4A6A;
   --text-primary: #E8F2FA;
   --text-secondary: #6B8FA8;
-  --text-muted: #2D4A62;
+  --text-muted: #3D6080;
   --accent: #5B9EC9;
   --accent-dim: rgba(91,158,201,0.12);
   --accent-glow: rgba(91,158,201,0.25);
   --green: #10b981;
-  --green-dim: rgba(16,185,129,0.1);
+  --green-dim: rgba(16,185,129,0.10);
   --red: #ef4444;
-  --red-dim: rgba(239,68,68,0.1);
+  --red-dim: rgba(239,68,68,0.10);
   --gold: #E8A855;
   --gold-dim: rgba(232,168,85,0.12);
   --purple: #7AAFC8;
   --orange: #E8A855;
+  --header-bg: rgba(10,21,32,0.96);
+  --toggle-bg: #1E3550;
+  --toggle-icon: "☀️";
+}
+
+/* ── 라이트 모드 ── */
+[data-theme="light"] {
+  --bg: #F0F4F8;
+  --bg-2: #E8EEF4;
+  --card: #FFFFFF;
+  --card-hover: #F7FAFC;
+  --border: #D1DCE8;
+  --border-light: #A8BCCC;
+  --text-primary: #0F1C2A;
+  --text-secondary: #4A6580;
+  --text-muted: #8BA3B8;
+  --accent: #2A72AA;
+  --accent-dim: rgba(42,114,170,0.10);
+  --accent-glow: rgba(42,114,170,0.22);
+  --green: #0a9e6a;
+  --green-dim: rgba(10,158,106,0.10);
+  --red: #d93232;
+  --red-dim: rgba(217,50,50,0.10);
+  --gold: #C07A20;
+  --gold-dim: rgba(192,122,32,0.10);
+  --purple: #3B7AA8;
+  --orange: #C07A20;
+  --header-bg: rgba(240,244,248,0.96);
+  --toggle-bg: #D1DCE8;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 a { color: inherit; }
@@ -58,6 +90,12 @@ a { color: inherit; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.25s ease forwards; }
 
+/* 탭 버튼 텍스트 줄바꿈 방지 */
+.tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* 모바일 반응형 */
 @media (max-width: 768px) {
   .header-inner {
@@ -77,6 +115,7 @@ a { color: inherit; }
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    padding-bottom: 2px;
   }
   .header-nav::-webkit-scrollbar { display: none; }
   .header-right {
@@ -91,6 +130,10 @@ a { color: inherit; }
   .modal-content {
     max-height: 95vh !important;
     border-radius: 12px 12px 0 0 !important;
+  }
+  /* 추천 섹션 모바일에서 1열 */
+  .recommend-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
