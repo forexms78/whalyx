@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import {
   HotStock, RecommendedStock, CoinData, RealEstateIndicator,
   CommodityData, NewsItem, BondData, KoreaRates,
@@ -25,6 +24,9 @@ const MARKET_TABS: { id: MarketTab; label: string }[] = [
 ];
 
 interface MarketsProps {
+  // 서브탭 제어 (외부에서 주입)
+  activeSubTab: MarketTab;
+  onSubTabChange: (tab: MarketTab) => void;
   // 주식
   hotStocks: HotStock[];
   recommendations: { buy: RecommendedStock[]; sell: RecommendedStock[] } | null;
@@ -55,10 +57,10 @@ interface MarketsProps {
 }
 
 export default function MarketsSection(props: MarketsProps) {
-  const [activeTab, setActiveTab] = useState<MarketTab>("stocks");
+  const activeTab = props.activeSubTab;
 
   function handleTabChange(tab: MarketTab) {
-    setActiveTab(tab);
+    props.onSubTabChange(tab);
     if (tab === "crypto"      && props.coins.length === 0)     props.onLoadCrypto();
     if (tab === "realestate"  && !props.reData)                props.onLoadRE();
     if (tab === "commodities" && !props.commodityData)         props.onLoadCommodity();

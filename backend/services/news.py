@@ -119,12 +119,37 @@ def fetch_bond_news(limit: int = 8) -> list[dict]:
     return results
 
 
+_CRYPTO_PROMO_KEYWORDS = [
+    "earn up to", "sign up", "join now", "get started", "trading platform",
+    "exchange listing", "listed on", "now available on", "launch event",
+    "exclusive offer", "limited time", "airdrop", "referral", "bonus",
+    "sponsored", "advertisement", "press release",
+]
+_PROMO_SOURCES = {"prnewswire", "globenewswire", "businesswire", "accesswire"}
+
+
+def _filter_promo(articles: list[dict]) -> list[dict]:
+    """코인 홍보·광고성 뉴스 제거"""
+    result = []
+    for a in articles:
+        text = ((a.get("title") or "") + " " + (a.get("description") or "")).lower()
+        source = (a.get("source") or "").lower()
+        if any(kw in text for kw in _CRYPTO_PROMO_KEYWORDS):
+            continue
+        if any(s in source for s in _PROMO_SOURCES):
+            continue
+        result.append(a)
+    return result
+
+
 def fetch_market_news_all() -> dict[str, list[dict]]:
     """AI 뉴스 분석용 — 카테고리별 최신 뉴스 수집"""
+    crypto_raw = _fetch_news("bitcoin ethereum crypto market", 10)
     return {
         "주식": _fetch_news("stock market S&P500 earnings Wall Street", 6),
-        "코인": _fetch_news("bitcoin ethereum crypto cryptocurrency", 6),
-        "부동산": _fetch_news("real estate housing market mortgage", 5),
+        "코인": _filter_promo(crypto_raw)[:6],
+        "부동산": _fetch_news("아파트 부동산 서울 매매", 5, language="ko")
+                 or _fetch_news("한국 부동산 시장", 5, language="ko"),
         "광물": _fetch_news("gold silver copper oil commodity", 5),
         "채권": _fetch_news("treasury bond yield Fed interest rate", 5),
     }
