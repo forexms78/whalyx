@@ -12,6 +12,46 @@ const ASSET_TAB_MAP: Record<string, Tab | null> = {
   "채권":   null,
 };
 
+// 텍스트 내 투자 키워드 → 탭 매핑 (긴 것 먼저 — 부분 매칭 방지)
+const KEYWORD_TAB: { keyword: string; tab: Tab }[] = [
+  { keyword: "암호화폐", tab: "crypto" },
+  { keyword: "비트코인", tab: "crypto" },
+  { keyword: "금/광물",  tab: "commodities" },
+  { keyword: "원자재",   tab: "commodities" },
+  { keyword: "부동산",   tab: "realestate" },
+  { keyword: "주식",     tab: "stocks" },
+  { keyword: "코인",     tab: "crypto" },
+];
+
+function renderLinkedText(
+  text: string,
+  onTabChange?: (tab: Tab) => void
+): React.ReactNode {
+  if (!onTabChange || !text) return text;
+
+  const pattern = KEYWORD_TAB.map(k =>
+    k.keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  ).join("|");
+  const regex = new RegExp(`(${pattern})`, "g");
+  const parts = text.split(regex);
+
+  return parts.map((part, i) => {
+    const mapping = KEYWORD_TAB.find(k => k.keyword === part);
+    if (mapping) {
+      return (
+        <span
+          key={i}
+          onClick={() => onTabChange(mapping.tab)}
+          style={{ cursor: "pointer" }}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 // 점수 → 라벨/색상 매핑
 function scoreInfo(score: number) {
   if (score >= 75) return { label: "Strong Buy", color: "#10b981", bg: "rgba(16,185,129,0.1)" };
@@ -151,11 +191,11 @@ export default function WhaleSignalSection({
           </div>
           {/* 헤드라인 */}
           <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.35, marginBottom: 10, color: "var(--text-primary)" }}>
-            {data.headline}
+            {renderLinkedText(data.headline, onTabChange)}
           </div>
           {/* AI 인사이트 */}
           <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-            {data.ai_insight}
+            {renderLinkedText(data.ai_insight, onTabChange)}
           </p>
           {/* 빠른 지표 바 */}
           <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
