@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function Tooltip({
   content,
@@ -10,20 +11,36 @@ export default function Tooltip({
   children: React.ReactNode;
   width?: number;
 }) {
-  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const show = useCallback(() => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setPos({
+      top: r.bottom + window.scrollY + 8,
+      left: r.left + window.scrollX + r.width / 2,
+    });
+  }, []);
+
+  const hide = useCallback(() => setPos(null), []);
 
   return (
     <span
+      ref={ref}
       style={{ position: "relative", display: "inline-flex", alignItems: "center", cursor: "help" }}
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
+      onMouseEnter={show}
+      onMouseLeave={hide}
     >
       {children}
-      {visible && (
+      {mounted && pos && createPortal(
         <div style={{
           position: "absolute",
-          top: "calc(100% + 8px)",
-          left: "50%",
+          top: pos.top,
+          left: pos.left,
           transform: "translateX(-50%)",
           width,
           background: "#0E1E30",
@@ -32,9 +49,9 @@ export default function Tooltip({
           lineHeight: 1.7,
           padding: "12px 14px",
           borderRadius: 10,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-          border: "1px solid #1E3550",
-          zIndex: 9999,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+          border: "1px solid #2A4A6A",
+          zIndex: 99999,
           pointerEvents: "none",
           whiteSpace: "pre-wrap",
         }}>
@@ -46,10 +63,11 @@ export default function Tooltip({
             width: 0, height: 0,
             borderLeft: "6px solid transparent",
             borderRight: "6px solid transparent",
-            borderBottom: "6px solid #1E3550",
+            borderBottom: "6px solid #2A4A6A",
           }} />
           {content}
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   );

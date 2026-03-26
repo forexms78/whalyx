@@ -171,7 +171,7 @@ function NewsAICard({ item }: { item: NewsAIItem }) {
         {/* 좌측 썸네일 */}
         {item.image_url && (
           <div style={{
-            width: 100, height: 76, flexShrink: 0,
+            width: 130, height: 100, flexShrink: 0,
             borderRadius: 8, overflow: "hidden", background: "var(--border)",
           }}>
             <img

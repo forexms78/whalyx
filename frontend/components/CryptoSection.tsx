@@ -105,17 +105,7 @@ export default function CryptoSection({ coins, news, usd_krw }: Props) {
         })}
       </div>
 
-      {/* 코인 뉴스 */}
-      {news.length > 0 && (
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>코인 최신 뉴스</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {news.map((n, i) => (
-              <NewsCard key={i} news={n} />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* 코인 뉴스는 AI 뉴스 탭에서 확인하세요 */}
     </div>
   );
 }

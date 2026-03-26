@@ -39,19 +39,7 @@ export default function RealEstateSection({ indicators, news }: Props) {
         })}
       </div>
 
-      {/* 부동산 뉴스 */}
-      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>부동산 최신 뉴스</div>
-      {news.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {news.map((n, i) => (
-            <NewsCard key={i} news={n} />
-          ))}
-        </div>
-      ) : (
-        <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-          뉴스를 불러오는 중입니다...
-        </div>
-      )}
+      {/* 부동산 뉴스는 AI 뉴스 탭에서 확인하세요 */}
     </div>
   );
 }

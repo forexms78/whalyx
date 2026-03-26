@@ -141,57 +141,7 @@ export default function BondsSection({
         </div>
       </div>
 
-      {/* 뉴스 */}
-      {news.length > 0 && (
-        <>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
-            채권 최신 뉴스
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {news.map((n, i) => (
-              <a
-                key={i}
-                href={n.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "block",
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--card-hover)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "var(--card)")}
-              >
-                <div style={{ display: "flex", gap: 14, padding: "14px 16px", alignItems: "flex-start" }}>
-                  {n.image_url && (
-                    <div style={{ width: 100, height: 76, flexShrink: 0, borderRadius: 8, overflow: "hidden", background: "var(--border)" }}>
-                      <img
-                        src={n.image_url}
-                        alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = "none"; }}
-                      />
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, lineHeight: 1.45 }}>
-                      {n.title}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      {n.source} · {new Date(n.published_at).toLocaleDateString("ko-KR")}
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        </>
-      )}
+      {/* 채권 뉴스는 AI 뉴스 탭에서 확인하세요 */}
     </div>
   );
 }

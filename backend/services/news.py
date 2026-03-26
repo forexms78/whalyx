@@ -12,6 +12,25 @@ _news_cache: dict[str, tuple[list[dict], float]] = {}
 NEWS_CACHE_TTL = 900  # 15분
 
 
+_BLOCKED_DOMAINS = {
+    "pypi.org", "github.com", "npmjs.com", "stackoverflow.com",
+    "readthedocs.io", "docs.python.org", "medium.com/tag",
+    "t.co", "reddit.com", "twitter.com", "x.com",
+    "patreon.com", "substack.com", "discord.com", "telegram.org",
+}
+
+
+def _is_junk_url(url: str) -> bool:
+    if not url:
+        return True
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower().lstrip("www.")
+        return any(host == d or host.endswith("." + d) for d in _BLOCKED_DOMAINS)
+    except Exception:
+        return False
+
+
 def _fetch_news(q: str, limit: int, language: str = "en") -> list[dict]:
     cache_key = f"{q}_{limit}_{language}"
     now = time.time()
@@ -37,6 +56,8 @@ def _fetch_news(q: str, limit: int, language: str = "en") -> list[dict]:
             title = a.get("title", "")
             url = a.get("url", "")
             if not title or "[Removed]" in title:
+                continue
+            if _is_junk_url(url):
                 continue
             # URL 또는 제목 앞 40자 기준 중복 제거
             title_key = title[:40].lower()
@@ -143,13 +164,11 @@ def _filter_promo(articles: list[dict]) -> list[dict]:
 
 
 def fetch_market_news_all() -> dict[str, list[dict]]:
-    """AI 뉴스 분석용 — 카테고리별 최신 뉴스 수집"""
-    crypto_raw = _fetch_news("bitcoin ethereum crypto market", 10)
+    """AI 뉴스 분석용 — 마켓 섹션과 동일한 소스로 수집"""
     return {
         "주식": _fetch_news("stock market S&P500 earnings Wall Street", 6),
-        "코인": _filter_promo(crypto_raw)[:6],
-        "부동산": _fetch_news("아파트 부동산 서울 매매", 5, language="ko")
-                 or _fetch_news("한국 부동산 시장", 5, language="ko"),
-        "광물": _fetch_news("gold silver copper oil commodity", 5),
-        "채권": _fetch_news("treasury bond yield Fed interest rate", 5),
+        "코인": _filter_promo(fetch_crypto_news(10))[:6],
+        "부동산": fetch_realestate_news(5),
+        "광물": fetch_commodity_news(5),
+        "채권": fetch_bond_news(5),
     }
