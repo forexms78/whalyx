@@ -154,6 +154,8 @@ export interface WhaleSignal {
   ai_insight: string;
   fed_rate: number;
   updated_at: string;
+  market_news?: NewsItem[];
+  asia_news?: NewsItem[];
 }
 
 export interface KoreaRates {

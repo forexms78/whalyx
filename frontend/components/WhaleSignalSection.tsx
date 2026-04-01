@@ -1,6 +1,6 @@
 "use client";
 import { PieChart, Pie, Cell } from "recharts";
-import { WhaleSignal } from "@/types";
+import { WhaleSignal, NewsItem } from "@/types";
 
 type Tab = "signal" | "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 
@@ -221,7 +221,7 @@ export default function WhaleSignalSection({
       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
         자산군별 투자 신호
       </div>
-      <div className="grid-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 32 }}>
+      <div className="grid-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
         {data.signals.map((s) => {
           const targetTab = ASSET_TAB_MAP[s.asset];
           const info = scoreInfo(s.score);
@@ -305,6 +305,75 @@ export default function WhaleSignalSection({
             </div>
           );
         })}
+      </div>
+
+      {/* ── 시장 뉴스 ── */}
+      {((data.market_news && data.market_news.length > 0) || (data.asia_news && data.asia_news.length > 0)) && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 8 }}>
+          {/* 글로벌 시장 뉴스 */}
+          {data.market_news && data.market_news.length > 0 && (
+            <NewsColumn title="글로벌 시장" news={data.market_news} />
+          )}
+          {/* 아시아/한국 시장 뉴스 */}
+          {data.asia_news && data.asia_news.length > 0 && (
+            <NewsColumn title="아시아 시장" news={data.asia_news} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NewsColumn({ title, news }: { title: string; news: NewsItem[] }) {
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+        {title}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {news.slice(0, 5).map((item, i) => (
+          <a
+            key={i}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", gap: 10,
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              textDecoration: "none",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "var(--card-hover)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "var(--card)"; }}
+          >
+            {item.image_url && (
+              <img
+                src={item.image_url}
+                alt=""
+                style={{ width: 56, height: 56, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: "var(--text-primary)",
+                lineHeight: 1.4, marginBottom: 4,
+                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+              }}>
+                {item.title}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>{item.source}</span>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {item.published_at ? new Date(item.published_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                </span>
+              </div>
+            </div>
+          </a>
+        ))}
       </div>
     </div>
   );

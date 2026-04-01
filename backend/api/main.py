@@ -11,6 +11,7 @@ from backend.services.news import (
     fetch_investor_news, fetch_stock_news,
     fetch_crypto_news, fetch_realestate_news,
     fetch_commodity_news, fetch_bond_news, fetch_market_news_all,
+    fetch_stock_market_news, fetch_asia_market_news,
 )
 from backend.services.financial import get_stock_data, get_multiple_stocks_parallel
 from backend.services.ai_summary import generate_investor_insight, generate_stock_insight, generate_news_analysis
@@ -414,5 +415,9 @@ async def whale_signal():
     ]
 
     fed_rate = await asyncio.get_event_loop().run_in_executor(_executor, get_fed_rate)
-    signal = await get_whale_signal(assets, fed_rate)
-    return signal
+    signal, market_news, asia_news = await asyncio.gather(
+        get_whale_signal(assets, fed_rate),
+        _run(fetch_stock_market_news, 6),
+        _run(fetch_asia_market_news, 4),
+    )
+    return {**signal, "market_news": market_news, "asia_news": asia_news}

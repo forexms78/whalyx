@@ -3,6 +3,7 @@ import time
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+import yfinance as yf
 
 load_dotenv()
 
@@ -10,7 +11,8 @@ BOK_API_KEY = os.getenv("BOK_API_KEY", "")
 BOK_BASE = "https://ecos.bok.or.kr/api/StatisticSearch"
 
 _cache: dict = {}
-CACHE_TTL = 3600  # 1시간 (금리·환율은 자주 안 바뀜)
+CACHE_TTL = 3600        # 금리 데이터: 1시간
+FX_CACHE_TTL = 300      # 환율: 5분 (장중 실시간 반영)
 
 _session = requests.Session()
 _session.headers.update({"User-Agent": "Mozilla/5.0"})
@@ -47,6 +49,47 @@ def _get_bok(stat_code: str, item_code: str, cycle: str = "D") -> float | None:
     return rows[-1] if rows else None
 
 
+def _get_realtime_usd_krw() -> tuple[float | None, float | None]:
+    """yfinance KRW=X로 실시간 원달러 환율 조회 (5분 캐시)"""
+    cache_key = "usd_krw_realtime"
+    cached = _cache.get(cache_key)
+    if cached and time.time() - cached[1] < FX_CACHE_TTL:
+        return cached[0]
+
+    try:
+        t = yf.Ticker("KRW=X")
+        hist = t.history(period="2d", interval="1h")
+        if not hist.empty:
+            closes = hist["Close"].tolist()
+            current = round(float(closes[-1]), 2)
+            change_1d = None
+            # 전일 대비: 24개 봉(1h * 24) 이상이면 24봉 이전 값 사용
+            if len(closes) >= 24:
+                prev = closes[-24]
+                change_1d = round((current - prev) / prev * 100, 2)
+            elif len(closes) >= 2:
+                change_1d = round((closes[-1] - closes[-2]) / closes[-2] * 100, 2)
+            result = (current, change_1d)
+            _cache[cache_key] = (result, time.time())
+            return result
+    except Exception:
+        pass
+
+    # BOK 폴백 (전일 마감 기준)
+    try:
+        krw_rows = _get_bok_rows("731Y001", "0000001", "D", count=5)
+        if krw_rows:
+            current = krw_rows[-1]
+            change_1d = None
+            if len(krw_rows) >= 2:
+                change_1d = round((krw_rows[-1] - krw_rows[-2]) / krw_rows[-2] * 100, 2)
+            return (current, change_1d)
+    except Exception:
+        pass
+
+    return (None, None)
+
+
 def get_korea_rates() -> dict:
     """한국 주요 금리 및 환율 데이터 반환"""
     # 한국은행 기준금리: 722Y001 / 0101000 (D 일별)
@@ -57,12 +100,8 @@ def get_korea_rates() -> dict:
     treasury_10y = _get_bok("817Y002", "010210000", "D")
     # CD 91일물: 817Y002 / 010502000
     cd_rate = _get_bok("817Y002", "010502000", "D")
-    # 원/달러 환율(매매기준율): 731Y001 / 0000001 — 전일 대비 변동률 계산
-    krw_rows = _get_bok_rows("731Y001", "0000001", "D", count=5)
-    usd_krw = krw_rows[-1] if krw_rows else None
-    usd_krw_change_1d = None
-    if len(krw_rows) >= 2 and krw_rows[-2]:
-        usd_krw_change_1d = round((krw_rows[-1] - krw_rows[-2]) / krw_rows[-2] * 100, 2)
+    # 원/달러 환율 — yfinance KRW=X 실시간 (장중 반영), BOK는 폴백
+    usd_krw, usd_krw_change_1d = _get_realtime_usd_krw()
 
     return {
         "base_rate":         base_rate,          # 기준금리 (연%)

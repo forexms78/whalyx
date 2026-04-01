@@ -10,7 +10,7 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
 
 _signal_cache: Optional[tuple[dict, float]] = None
-SIGNAL_TTL = 21600  # 6시간 — 30일 트렌드 기반이므로 잦은 갱신 불필요
+SIGNAL_TTL = 7200   # 2시간 — 급변장 대응을 위해 단축
 
 
 def _score_to_label(score: int) -> tuple[str, str, str]:

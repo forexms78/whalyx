@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,19 +32,22 @@ def _is_junk_url(url: str) -> bool:
         return False
 
 
-def _fetch_news(q: str, limit: int, language: str = "en") -> list[dict]:
+def _fetch_news(q: str, limit: int, language: str = "en", hours: int = 48) -> list[dict]:
     cache_key = f"{q}_{limit}_{language}"
     now = time.time()
     cached = _news_cache.get(cache_key)
     if cached and now - cached[1] < NEWS_CACHE_TTL:
         return cached[0]
 
+    from_dt = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     try:
         params = {
             "q": q,
             "language": language,
             "sortBy": "publishedAt",
-            "pageSize": limit,
+            "pageSize": min(limit * 2, 20),   # 필터 후 limit 맞추기 위해 여유분 조회
+            "from": from_dt,
             "apiKey": NEWS_API_KEY,
         }
         r = requests.get(NEWS_API_URL, params=params, timeout=10)
@@ -73,6 +77,7 @@ def _fetch_news(q: str, limit: int, language: str = "en") -> list[dict]:
                 "url": url,
                 "image_url": a.get("urlToImage", ""),
             })
+        result = result[:limit]
         _news_cache[cache_key] = (result, time.time())
         return result
     except Exception:
@@ -163,10 +168,38 @@ def _filter_promo(articles: list[dict]) -> list[dict]:
     return result
 
 
+def fetch_stock_market_news(limit: int = 8) -> list[dict]:
+    """글로벌 주식 시장 최신 뉴스 (랠리·급락·관세 포함)"""
+    queries = [
+        "stock market rally surge S&P500 Nasdaq Wall Street",
+        "S&P500 stocks market today Fed tariff",
+        "stock market Wall Street",
+    ]
+    for q in queries:
+        results = _fetch_news(q, limit, hours=48)
+        if results:
+            return results
+    return []
+
+
+def fetch_asia_market_news(limit: int = 6) -> list[dict]:
+    """아시아·한국 증시 뉴스"""
+    queries = [
+        "Kospi Korea stock market rally",
+        "Asian markets stocks rally",
+        "Korea market stocks",
+    ]
+    for q in queries:
+        results = _fetch_news(q, limit, hours=48)
+        if results:
+            return results
+    return []
+
+
 def fetch_market_news_all() -> dict[str, list[dict]]:
     """AI 뉴스 분석용 — 마켓 섹션과 동일한 소스로 수집"""
     return {
-        "주식": _fetch_news("stock market S&P500 earnings Wall Street", 6),
+        "주식": fetch_stock_market_news(6),
         "코인": _filter_promo(fetch_crypto_news(10))[:6],
         "부동산": fetch_realestate_news(5),
         "광물": fetch_commodity_news(5),
