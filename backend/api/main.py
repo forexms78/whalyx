@@ -20,6 +20,7 @@ from backend.services.commodities import get_all_commodities
 from backend.services.whale_signal import get_whale_signal
 from backend.services.korea_rates import get_korea_rates
 from backend.services.fed_rate import get_fed_rate
+from backend.services.today_picks import get_today_picks
 
 app = FastAPI(title="Whalyx API", version="2.0.0")
 
@@ -421,3 +422,13 @@ async def whale_signal():
         _run(fetch_asia_market_news, 4),
     )
     return {**signal, "market_news": market_news, "asia_news": asia_news}
+
+
+# ─────────────────────────────────────────────
+# 오늘의 투자포인트
+# ─────────────────────────────────────────────
+
+@app.get("/today-picks")
+async def today_picks():
+    """S&P 500 대표 50종목 AI 분석 — 매수 3 / 매도 3 / 관심 3"""
+    return await _run(get_today_picks)
