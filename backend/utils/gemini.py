@@ -65,7 +65,7 @@ def call_gemini(prompt: str, system: str = "", retries: int = 3) -> str:
         return _MOCK_RESPONSES["report"]
 
     config = types.GenerateContentConfig(
-        system_instruction=system if system else None,
+        system_instruction=system or None,
     )
 
     for attempt in range(retries):
