@@ -58,6 +58,17 @@ def debug_env():
     }
 
 
+@app.get("/debug/gemini")
+async def debug_gemini():
+    """Gemini 직접 호출 테스트 — 에러 메시지 노출"""
+    try:
+        from backend.utils.gemini import call_gemini
+        result = call_gemini("한국어로 '테스트 성공'이라고만 답하세요.")
+        return {"status": "ok", "response": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "type": type(e).__name__}
+
+
 # ─────────────────────────────────────────────
 # 투자자
 # ─────────────────────────────────────────────
