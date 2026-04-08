@@ -7,7 +7,10 @@ from google.genai import types
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+_client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY"),
+    http_options=types.HttpOptions(timeout=25000),  # 25초 타임아웃
+)
 
 MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 
@@ -54,7 +57,7 @@ def _parse_retry_after(err_msg: str) -> float:
     return float(match.group(1)) + 2.0 if match else 30.0
 
 
-def call_gemini(prompt: str, system: str = "", retries: int = 3) -> str:
+def call_gemini(prompt: str, system: str = "", retries: int = 1) -> str:
     global _last_call_time, _call_count
 
     if MOCK_MODE:
