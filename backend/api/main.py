@@ -426,10 +426,11 @@ async def bonds():
 
 @app.get("/market-driver")
 async def market_driver():
-    """글로벌 헤드라인 → Gemini가 오늘 시장을 움직이는 핵심 뉴스 3개 선정"""
-    headlines = await _run(fetch_top_headlines, 20)
-    result = await _run(generate_market_drivers, headlines)
-    return result
+    """오늘의 마켓 드라이버 (DB-Only — 스케줄러가 30분마다 Gemini 분석 후 갱신)"""
+    cached = await _run(db_get, "market_driver", 7200)
+    if cached:
+        return cached
+    return {"drivers": [], "updated_at": None}
 
 
 # ─────────────────────────────────────────────
@@ -515,5 +516,8 @@ async def whale_signal():
 
 @app.get("/today-picks")
 async def today_picks():
-    """S&P 500 대표 50종목 AI 분석 — 매수 3 / 매도 3 / 관심 3"""
-    return await _run(get_today_picks)
+    """오늘의 투자포인트 (DB-Only — 스케줄러가 6시간마다 FinBERT+Gemini 분석 후 갱신)"""
+    cached = await _run(db_get, "today_picks", 86400)
+    if cached:
+        return cached
+    return {"buy": [], "sell": [], "watch": [], "updated_at": None}

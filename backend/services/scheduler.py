@@ -1,8 +1,13 @@
 """
-백그라운드 스케줄러 — DB-First 캐시 갱신
+백그라운드 스케줄러 — DB-Only 아키텍처
 
-앱 시작 시 즉시 warm_all_caches() 실행 → 이후 10분마다 주요 캐시 자동 갱신.
-엔드포인트는 Supabase에서만 읽어 즉시 응답 (< 200ms).
+엔드포인트: Supabase에서만 읽음 (< 200ms, 항상 즉시 응답)
+스케줄러:  외부 API / Gemini / FinBERT 호출 전담 → Supabase에 저장
+
+잡 주기:
+  - investors / stocks_hot / recommendations: 10분
+  - market_driver (Gemini): 30분
+  - today_picks (FinBERT + Gemini): 6시간
 """
 import asyncio
 import logging
@@ -17,7 +22,6 @@ async def _run_sync(fn, *args):
 
 
 async def refresh_investors():
-    """투자자 목록 + 보유 종목 주가 → Supabase 갱신 (10분 주기)"""
     from backend.services.investors import get_all_investors
     from backend.services.financial import get_multiple_stocks_parallel
     from backend.services.db_cache import db_set
@@ -46,7 +50,6 @@ async def refresh_investors():
 
 
 async def refresh_stocks_hot():
-    """핫 종목 TOP 12 + 주가 → Supabase 갱신 (10분 주기)"""
     from backend.services.investors import get_hot_tickers
     from backend.services.financial import get_multiple_stocks_parallel
     from backend.services.db_cache import db_set
@@ -61,7 +64,6 @@ async def refresh_stocks_hot():
 
 
 async def refresh_recommendations():
-    """매수/매도 추천 + 주가 → Supabase 갱신 (10분 주기)"""
     from backend.services.investors import get_buy_recommendations, get_sell_recommendations
     from backend.services.financial import get_multiple_stocks_parallel
     from backend.services.db_cache import db_set
@@ -84,13 +86,37 @@ async def refresh_recommendations():
         logger.error(f"❌ [scheduler] stocks_recommendations 갱신 실패: {e}")
 
 
+async def refresh_market_driver():
+    """오늘의 마켓 드라이버 (Gemini) → Supabase 갱신"""
+    from backend.services.news import fetch_top_headlines
+    from backend.services.ai_summary import generate_market_drivers
+    try:
+        headlines = await _run_sync(fetch_top_headlines, 20)
+        await _run_sync(generate_market_drivers, headlines)
+        logger.info("✅ [scheduler] market_driver 갱신 완료")
+    except Exception as e:
+        logger.error(f"❌ [scheduler] market_driver 갱신 실패: {e}")
+
+
+async def refresh_today_picks():
+    """S&P 50종목 FinBERT + Gemini 분석 → Supabase 갱신"""
+    from backend.services.today_picks import get_today_picks
+    try:
+        await _run_sync(get_today_picks)
+        logger.info("✅ [scheduler] today_picks 갱신 완료")
+    except Exception as e:
+        logger.error(f"❌ [scheduler] today_picks 갱신 실패: {e}")
+
+
 async def warm_all_caches():
-    """앱 시작 시 모든 캐시 병렬 웜업 — 외부 API miss 없이 즉시 서비스 가능"""
+    """앱 시작 시 캐시 웜업 — 주가(즉시) + AI 분석(백그라운드, 30~90초 소요)"""
     logger.info("🔥 [scheduler] 캐시 웜업 시작...")
+    # 주가 데이터는 빠름 (~10초), AI 분석은 느리지만 백그라운드 실행이라 서버 응답에 영향 없음
     await asyncio.gather(
         refresh_investors(),
         refresh_stocks_hot(),
         refresh_recommendations(),
+        refresh_market_driver(),   # 30~35초 (Gemini) — 백그라운드에서 실행됨
         return_exceptions=True,
     )
     logger.info("🔥 [scheduler] 캐시 웜업 완료")
@@ -101,4 +127,6 @@ def create_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(refresh_investors, "interval", minutes=10, id="investors", max_instances=1)
     scheduler.add_job(refresh_stocks_hot, "interval", minutes=10, id="stocks_hot", max_instances=1)
     scheduler.add_job(refresh_recommendations, "interval", minutes=10, id="recommendations", max_instances=1)
+    scheduler.add_job(refresh_market_driver, "interval", minutes=30, id="market_driver", max_instances=1)
+    scheduler.add_job(refresh_today_picks, "interval", hours=6, id="today_picks", max_instances=1)
     return scheduler
