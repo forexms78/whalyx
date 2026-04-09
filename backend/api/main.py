@@ -61,10 +61,13 @@ def health_check():
 def debug_env():
     import os
     key = os.getenv("GEMINI_API_KEY", "")
+    sb_url = os.getenv("SUPABASE_URL", "")
+    sb_key = os.getenv("SUPABASE_KEY", "")
     return {
         "GEMINI_API_KEY_set": bool(key),
         "GEMINI_API_KEY_prefix": key[:8] + "..." if key else "NOT SET",
-        "SUPABASE_URL_set": bool(os.getenv("SUPABASE_URL")),
+        "SUPABASE_URL": sb_url[:40] + "..." if sb_url else "NOT SET",
+        "SUPABASE_KEY_prefix": sb_key[:20] + "..." if sb_key else "NOT SET",
         "BOK_API_KEY_set": bool(os.getenv("BOK_API_KEY")),
     }
 
