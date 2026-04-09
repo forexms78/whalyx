@@ -22,7 +22,7 @@ from backend.services.whale_signal import get_whale_signal
 from backend.services.korea_rates import get_korea_rates
 from backend.services.fed_rate import get_fed_rate
 from backend.services.today_picks import get_today_picks
-from backend.services.db_cache import db_get, db_set
+from backend.services.db_cache import db_get, db_get_stale, db_set
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -427,7 +427,7 @@ async def bonds():
 @app.get("/market-driver")
 async def market_driver():
     """오늘의 마켓 드라이버 (DB-Only — 스케줄러가 30분마다 Gemini 분석 후 갱신)"""
-    cached = await _run(db_get, "market_driver", 86400)  # 24h (스케줄러가 30분마다 갱신)
+    cached = await _run(db_get_stale, "market_driver")  # TTL 무시 — 스케줄러가 신선도 보장
     if cached:
         return cached
     return {"drivers": [], "updated_at": None}
@@ -517,7 +517,7 @@ async def whale_signal():
 @app.get("/today-picks")
 async def today_picks():
     """오늘의 투자포인트 (DB-Only — 스케줄러가 6시간마다 FinBERT+Gemini 분석 후 갱신)"""
-    cached = await _run(db_get, "today_picks", 86400)
+    cached = await _run(db_get_stale, "today_picks")  # TTL 무시 — 스케줄러가 신선도 보장
     if cached:
         return cached
     return {"buy": [], "sell": [], "watch": [], "updated_at": None}

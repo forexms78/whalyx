@@ -70,6 +70,23 @@ def db_get(key: str, ttl: int) -> dict | list | None:
     return None
 
 
+def db_get_stale(key: str) -> dict | list | None:
+    """TTL 무시하고 Supabase에 데이터가 있으면 무조건 반환.
+    스케줄러가 신선도를 보장하므로 엔드포인트는 이 함수를 사용."""
+    client = _get_client()
+    if not client:
+        return None
+    try:
+        r = client.table("api_cache") \
+            .select("data") \
+            .eq("key", key) \
+            .maybe_single() \
+            .execute()
+        return r.data["data"] if r.data else None
+    except Exception:
+        return None
+
+
 def db_set(key: str, data: dict | list) -> None:
     """Supabase api_cache 테이블에 캐시 저장 (upsert).
     실패해도 조용히 무시 — 메모리 캐시로 폴백."""
