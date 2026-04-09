@@ -228,11 +228,17 @@ async def stock_detail(ticker: str, period: str = "30d"):
 
 @app.get("/crypto")
 async def crypto_markets():
-    """코인 시장 데이터 + 최신 뉴스"""
+    """코인 시장 데이터 + 최신 뉴스 (DB-Only — 스케줄러 10분 주기)"""
+    cached = await _run(db_get_stale, "crypto")
+    if cached:
+        return cached
+    # DB 미스 시 직접 조회 후 저장
     coins_task = _run(get_coin_markets)
     news_task = _run(fetch_crypto_news)
     coins, news = await asyncio.gather(coins_task, news_task)
-    return {"coins": coins, "news": news}
+    result = {"coins": coins, "news": news}
+    await _run(db_set, "crypto", result)
+    return result
 
 
 @app.get("/crypto/{coin_id}")
@@ -251,11 +257,16 @@ async def crypto_detail(coin_id: str):
 
 @app.get("/commodities")
 async def commodities():
-    """광물/원자재 시장 데이터 + 뉴스"""
+    """광물/원자재 시장 데이터 + 뉴스 (DB-Only — 스케줄러 30분 주기)"""
+    cached = await _run(db_get_stale, "commodities")
+    if cached:
+        return cached
     commodities_task = get_all_commodities()
     news_task = _run(fetch_commodity_news)
     data, news = await asyncio.gather(commodities_task, news_task)
-    return {"commodities": data, "news": news}
+    result = {"commodities": data, "news": news}
+    await _run(db_set, "commodities", result)
+    return result
 
 
 # ─────────────────────────────────────────────
@@ -264,10 +275,11 @@ async def commodities():
 
 @app.get("/realestate")
 async def realestate():
-    """한국 부동산 뉴스 + 주요 지표"""
+    """한국 부동산 뉴스 + 주요 지표 (DB-Only — 스케줄러 1시간 주기)"""
+    cached = await _run(db_get_stale, "realestate")
+    if cached:
+        return cached
     news = await _run(fetch_realestate_news)
-
-    # 한국 주요 부동산 지표 (공개 API 미제공 → 참고용 고정값, 업데이트 필요 시 수동 갱신)
     indicators = [
         {"label": "서울 아파트 매매가격지수", "value": "105.2", "change": "+0.3%", "unit": "2021.01=100", "trend": "up"},
         {"label": "전국 아파트 전세가율", "value": "58.4%", "change": "-0.8%", "unit": "전세/매매", "trend": "down"},
@@ -276,8 +288,9 @@ async def realestate():
         {"label": "미분양 주택 (전국)", "value": "7.2만 호", "change": "+2.1%", "unit": "호수", "trend": "up"},
         {"label": "서울 아파트 거래량", "value": "3,840건", "change": "+8.5%", "unit": "월간", "trend": "up"},
     ]
-
-    return {"indicators": indicators, "news": news}
+    result = {"indicators": indicators, "news": news}
+    await _run(db_set, "realestate", result)
+    return result
 
 
 # ─────────────────────────────────────────────
@@ -286,8 +299,8 @@ async def realestate():
 
 @app.get("/money-flow")
 async def money_flow():
-    """금리·자산군별 수익률 — 돈의 흐름 파악"""
-    cached = await asyncio.get_event_loop().run_in_executor(_executor, db_get, "money_flow", 3600)
+    """금리·자산군별 수익률 — 돈의 흐름 파악 (DB-Only — 스케줄러 30분 주기)"""
+    cached = await asyncio.get_event_loop().run_in_executor(_executor, db_get_stale, "money_flow")
     if cached:
         return cached
 
@@ -382,31 +395,34 @@ async def money_flow():
 
 @app.get("/bonds")
 async def bonds():
-    """채권 시장 데이터 (TLT, 10Y/3M 국채 금리) + 뉴스"""
+    """채권 시장 데이터 (DB-Only — 스케줄러 30분 주기)"""
+    cached = await _run(db_get_stale, "bonds")
+    if cached:
+        return cached
     bond_tickers = ["^TNX", "^IRX", "TLT"]
     prices_task = get_multiple_stocks_parallel(bond_tickers)
     news_task = _run(fetch_bond_news)
     prices, news = await asyncio.gather(prices_task, news_task)
-
     tnx = prices.get("^TNX", {})
     irx = prices.get("^IRX", {})
     tlt = prices.get("TLT", {})
     fed_rate = await asyncio.get_event_loop().run_in_executor(_executor, get_fed_rate)
-
-    data = {
-        "fed_rate": fed_rate,
-        "yield_10y": tnx.get("current_price"),
-        "yield_10y_change": tnx.get("change_30d_pct"),
-        "yield_3m": irx.get("current_price"),
-        "yield_3m_change": irx.get("change_30d_pct"),
-        "tlt_price": tlt.get("current_price"),
-        "tlt_change_30d": tlt.get("change_30d_pct"),
-        "tlt_change_1d": tlt.get("change_1d_pct"),
-        "curve_inverted": (
-            (tnx.get("current_price") or 0) < (irx.get("current_price") or 0)
-        ),
+    result = {
+        "data": {
+            "fed_rate": fed_rate,
+            "yield_10y": tnx.get("current_price"),
+            "yield_10y_change": tnx.get("change_30d_pct"),
+            "yield_3m": irx.get("current_price"),
+            "yield_3m_change": irx.get("change_30d_pct"),
+            "tlt_price": tlt.get("current_price"),
+            "tlt_change_30d": tlt.get("change_30d_pct"),
+            "tlt_change_1d": tlt.get("change_1d_pct"),
+            "curve_inverted": (tnx.get("current_price") or 0) < (irx.get("current_price") or 0),
+        },
+        "news": news,
     }
-    return {"data": data, "news": news}
+    await _run(db_set, "bonds", result)
+    return result
 
 
 # ─────────────────────────────────────────────
@@ -428,10 +444,11 @@ async def market_driver():
 
 @app.get("/news-ai")
 async def news_ai():
-    """전 자산군 뉴스 수집 → Gemini 2.5 Flash 종합 분석"""
-    news_by_category = await _run(fetch_market_news_all)
-    result = await _run(generate_news_analysis, news_by_category)
-    return result
+    """전 자산군 뉴스 AI 분석 (DB-Only — 스케줄러 1시간 주기 Gemini 분석)"""
+    cached = await _run(db_get_stale, "news_ai")
+    if cached:
+        return cached
+    return {"error": "준비 중", "message": "스케줄러가 분석 데이터를 준비하고 있습니다."}
 
 
 # ─────────────────────────────────────────────
@@ -440,8 +457,12 @@ async def news_ai():
 
 @app.get("/korea-rates")
 async def korea_rates():
-    """한국은행 ECOS API — 기준금리, 국고채 3년물, CD 91일물"""
+    """한국은행 ECOS API (DB-Only — 스케줄러 1시간 주기)"""
+    cached = await _run(db_get_stale, "korea_rates")
+    if cached:
+        return cached
     data = await asyncio.get_event_loop().run_in_executor(_executor, get_korea_rates)
+    await _run(db_set, "korea_rates", data)
     return data
 
 
@@ -451,52 +472,15 @@ async def korea_rates():
 
 @app.get("/whale-signal")
 async def whale_signal():
-    """현재 시장 상황 종합 분석 — 거대한 돈이 어디로 이동하는가"""
-    macro_tickers = ["^TNX", "^IRX", "GLD", "SPY", "TLT"]
-    prices = await get_multiple_stocks_parallel(macro_tickers)
-    coins = await _run(get_coin_markets)
-
-    tnx = prices.get("^TNX", {})
-    spy = prices.get("SPY", {})
-    gld = prices.get("GLD", {})
-    tlt = prices.get("TLT", {})
-    btc = next((c for c in coins if c["symbol"] == "BTC"), {})
-
-    assets = [
-        {
-            "category": "주식",
-            "name": "S&P 500 (SPY)",
-            "change_30d": spy.get("change_30d_pct"),
-        },
-        {
-            "category": "채권",
-            "name": "장기채 (TLT)",
-            "change_30d": tlt.get("change_30d_pct"),
-        },
-        {
-            "category": "금",
-            "name": "금 (GLD ETF)",
-            "change_30d": gld.get("change_30d_pct"),
-        },
-        {
-            "category": "코인",
-            "name": "Bitcoin (BTC)",
-            "change_30d": btc.get("price_change_30d") if btc else None,
-        },
-        {
-            "category": "부동산",
-            "name": "서울 아파트",
-            "change_30d": 1.2,
-        },
-    ]
-
-    fed_rate = await asyncio.get_event_loop().run_in_executor(_executor, get_fed_rate)
-    signal, market_news, asia_news = await asyncio.gather(
-        get_whale_signal(assets, fed_rate),
-        _run(fetch_stock_market_news, 6),
-        _run(fetch_asia_market_news, 4),
-    )
-    return {**signal, "market_news": market_news, "asia_news": asia_news}
+    """현재 시장 상황 종합 분석 (DB-Only — 스케줄러 6시간 주기 Gemini 분석)"""
+    cached = await _run(db_get_stale, "whale_signal_full")
+    if cached:
+        return cached
+    # DB 미스 시 Gemini 없이 뉴스만 즉시 반환 (스케줄러가 나중에 채움)
+    market_news_task = _run(fetch_stock_market_news, 6)
+    asia_news_task = _run(fetch_asia_market_news, 4)
+    market_news, asia_news = await asyncio.gather(market_news_task, asia_news_task)
+    return {"signals": [], "market_news": market_news, "asia_news": asia_news}
 
 
 # ─────────────────────────────────────────────
