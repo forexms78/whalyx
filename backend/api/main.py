@@ -427,7 +427,7 @@ async def bonds():
 @app.get("/market-driver")
 async def market_driver():
     """오늘의 마켓 드라이버 (DB-Only — 스케줄러가 30분마다 Gemini 분석 후 갱신)"""
-    cached = await _run(db_get, "market_driver", 7200)
+    cached = await _run(db_get, "market_driver", 86400)  # 24h (스케줄러가 30분마다 갱신)
     if cached:
         return cached
     return {"drivers": [], "updated_at": None}
