@@ -43,10 +43,24 @@ export default function NewsAISection() {
 
   if (!data) return null;
 
-  const sc = SENTIMENT_CONFIG[data.sentiment] ?? SENTIMENT_CONFIG.Neutral;
+  const news = data.news ?? [];
+  const themes = data.themes ?? [];
+
+  // 데이터 준비 중 (빈 상태)
+  if (news.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>—</div>
+        <div style={{ fontSize: 14 }}>AI 뉴스 분석을 준비 중입니다</div>
+        <div style={{ fontSize: 12, marginTop: 6 }}>매 1시간마다 자동 갱신됩니다</div>
+      </div>
+    );
+  }
+
+  const sc = SENTIMENT_CONFIG[data.sentiment as keyof typeof SENTIMENT_CONFIG] ?? SENTIMENT_CONFIG.Neutral;
   const filtered = activeCategory === "전체"
-    ? data.news
-    : data.news.filter(n => n.category === activeCategory);
+    ? news
+    : news.filter(n => n.category === activeCategory);
 
   return (
     <div>
@@ -79,12 +93,12 @@ export default function NewsAISection() {
         </p>
 
         {/* 핵심 테마 */}
-        {data.themes.length > 0 && (
+        {themes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
               핵심 테마
             </div>
-            {data.themes.map((theme, i) => (
+            {themes.map((theme, i) => (
               <div key={i} style={{
                 background: "var(--bg-2, var(--bg))",
                 borderRadius: 10,
