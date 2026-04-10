@@ -90,6 +90,10 @@ def call_gemini(prompt: str, system: str = "", retries: int = 3) -> str:
                 wait = _parse_retry_after(err)
                 print(f"[Gemini] 429 — {wait:.0f}초 후 재시도 ({attempt+1}/{retries})")
                 time.sleep(wait)
+            elif "503" in err or "UNAVAILABLE" in err:
+                wait = 20.0
+                print(f"[Gemini] 503 서버 과부하 — {wait:.0f}초 후 재시도 ({attempt+1}/{retries})")
+                time.sleep(wait)
             else:
                 raise
     raise RuntimeError("Gemini 호출 최대 재시도 횟수 초과")

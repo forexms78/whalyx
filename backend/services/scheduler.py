@@ -171,7 +171,7 @@ async def refresh_crypto():
     from backend.services.news import fetch_crypto_news
     from backend.services.db_cache import db_set
     try:
-        coins_task = get_coin_markets()
+        coins_task = _run_sync(get_coin_markets)
         news_task = _run_sync(fetch_crypto_news)
         coins, news = await asyncio.gather(coins_task, news_task)
         await _run_sync(db_set, "crypto", {"coins": coins, "news": news})
@@ -270,7 +270,7 @@ async def refresh_money_flow():
     from backend.services.db_cache import db_set
     try:
         prices_task = get_multiple_stocks_parallel(["^TNX", "^IRX", "GLD", "SPY", "TLT"])
-        coins_task = get_coin_markets()
+        coins_task = _run_sync(get_coin_markets)
         prices, coins = await asyncio.gather(prices_task, coins_task)
         tnx = prices.get("^TNX", {})
         spy = prices.get("SPY", {})
@@ -334,7 +334,7 @@ async def refresh_whale_signal():
     from backend.services.db_cache import db_set
     try:
         prices_task = get_multiple_stocks_parallel(["^TNX", "^IRX", "GLD", "SPY", "TLT"])
-        coins_task = get_coin_markets()
+        coins_task = _run_sync(get_coin_markets)
         prices, coins = await asyncio.gather(prices_task, coins_task)
         spy = prices.get("SPY", {})
         tlt = prices.get("TLT", {})
@@ -399,8 +399,8 @@ async def refresh_today_picks():
 async def warm_all_caches():
     """앱 시작 시 캐시 웜업 — Gemini 없는 데이터 전부 즉시 갱신
     Gemini 잡(whale_signal·news_ai·investor_details·hot_stock_details·market_driver·today_picks)은
-    스케줄러가 주기적으로 채움"""
-    logger.info("🔥 [scheduler] 캐시 웜업 시작 (Gemini 없음)...")
+    DB 미스 시에만 즉시 1회 실행 (첫 배포 빈 화면 방지), 이후 스케줄러가 주기적으로 갱신"""
+    logger.info("🔥 [scheduler] 캐시 웜업 시작...")
     await asyncio.gather(
         refresh_investors(),
         refresh_stocks_hot(),
@@ -414,6 +414,18 @@ async def warm_all_caches():
         return_exceptions=True,
     )
     logger.info("🔥 [scheduler] 캐시 웜업 완료")
+
+    # Gemini 잡: DB 미스 시에만 즉시 1회 실행 (첫 배포 후 빈 화면 방지)
+    from backend.services.db_cache import db_get_stale
+    md_cached = await _run_sync(db_get_stale, "market_driver")
+    if not md_cached:
+        logger.info("🔥 [scheduler] market_driver DB 미스 → 즉시 1회 실행")
+        asyncio.create_task(refresh_market_driver())
+
+    picks_cached = await _run_sync(db_get_stale, "today_picks")
+    if not picks_cached:
+        logger.info("🔥 [scheduler] today_picks DB 미스 → 즉시 1회 실행")
+        asyncio.create_task(refresh_today_picks())
 
 
 def create_scheduler() -> AsyncIOScheduler:
