@@ -160,56 +160,34 @@ def generate_news_analysis(news_by_category: dict[str, list[dict]]) -> dict:
 }}
 themes는 3개, articles는 뉴스 전체 인덱스에 대해 작성하세요."""
 
-    try:
-        raw = call_gemini(prompt, SYSTEM)
-        # JSON 추출 (마크다운 코드블록 방어)
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        parsed = json.loads(match.group() if match else raw)
+    raw = call_gemini(prompt, SYSTEM)
+    # JSON 추출 (마크다운 코드블록 방어)
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    parsed = json.loads(match.group() if match else raw)
 
-        # articles 인덱스로 뉴스에 ai_summary 매핑
-        ai_map = {a["idx"]: a for a in parsed.get("articles", [])}
-        enriched = []
-        for i, item in enumerate(top):
-            ai_info = ai_map.get(i, {})
-            enriched.append({
-                "title": item["title"],
-                "source": item.get("source", ""),
-                "published_at": item.get("published_at", ""),
-                "url": item.get("url", ""),
-                "image_url": item.get("image_url", ""),
-                "category": item["category"],
-                "ai_summary": ai_info.get("summary", ""),
-                "sentiment": ai_info.get("sentiment", "neutral"),
-            })
+    # articles 인덱스로 뉴스에 ai_summary 매핑
+    ai_map = {a["idx"]: a for a in parsed.get("articles", [])}
+    enriched = []
+    for i, item in enumerate(top):
+        ai_info = ai_map.get(i, {})
+        enriched.append({
+            "title": item["title"],
+            "source": item.get("source", ""),
+            "published_at": item.get("published_at", ""),
+            "url": item.get("url", ""),
+            "image_url": item.get("image_url", ""),
+            "category": item["category"],
+            "ai_summary": ai_info.get("summary", ""),
+            "sentiment": ai_info.get("sentiment", "neutral"),
+        })
 
-        result = {
-            "sentiment": parsed.get("sentiment", "Neutral"),
-            "sentiment_score": parsed.get("sentiment_score", 50),
-            "summary": parsed.get("summary", ""),
-            "themes": parsed.get("themes", []),
-            "news": enriched,
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
-        _news_ai_cache = (result, now)
-        return result
-    except Exception as e:
-        return {
-            "sentiment": "Neutral",
-            "sentiment_score": 50,
-            "summary": "뉴스 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-            "themes": [],
-            "news": [
-                {
-                    "title": n["title"],
-                    "source": n.get("source", ""),
-                    "published_at": n.get("published_at", ""),
-                    "url": n.get("url", ""),
-                    "image_url": n.get("image_url", ""),
-                    "category": n["category"],
-                    "ai_summary": "",
-                    "sentiment": "neutral",
-                }
-                for n in top
-            ],
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
+    result = {
+        "sentiment": parsed.get("sentiment", "Neutral"),
+        "sentiment_score": parsed.get("sentiment_score", 50),
+        "summary": parsed.get("summary", ""),
+        "themes": parsed.get("themes", []),
+        "news": enriched,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    _news_ai_cache = (result, now)
+    return result

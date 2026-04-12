@@ -141,70 +141,75 @@ def fetch_stock_news(ticker: str, limit: int = 5) -> list[dict]:
     return _fetch_news(ticker, limit)
 
 
+def _ko(q: str, limit: int) -> list[dict]:
+    """한국어 Google News 검색 헬퍼"""
+    return _fetch_news(q, limit, hl="ko", gl="KR", ceid="KR:ko")
+
+
+def _en(q: str, limit: int) -> list[dict]:
+    """영어 Google News 검색 헬퍼"""
+    return _fetch_news(q, limit)
+
+
+def _ko_then_en(ko_queries: list[str], en_queries: list[str], limit: int) -> list[dict]:
+    """한국어 쿼리 우선 시도 → 결과 부족 시 영어 폴백"""
+    for q in ko_queries:
+        results = _ko(q, limit)
+        if len(results) >= 3:  # 최소 3개 이상이어야 유효한 결과로 판단
+            return results
+    for q in en_queries:
+        results = _en(q, limit)
+        if results:
+            return results
+    return []
+
+
 def fetch_crypto_news(limit: int = 8) -> list[dict]:
-    results = _fetch_news("bitcoin OR ethereum OR crypto cryptocurrency", limit)
-    if not results:
-        results = _fetch_news("crypto", limit)
-    return results
+    return _ko_then_en(
+        ko_queries=["비트코인 이더리움 암호화폐", "코인 가상화폐 투자"],
+        en_queries=["bitcoin OR ethereum OR crypto cryptocurrency", "crypto"],
+        limit=limit,
+    )
 
 
 def fetch_realestate_news(limit: int = 8) -> list[dict]:
-    queries = [
-        "아파트 부동산 서울",
-        "부동산 시세 매매",
-        "한국 부동산",
-    ]
-    for q in queries:
-        results = _fetch_news(q, limit, hl="ko", gl="KR", ceid="KR:ko")
-        if results:
-            return results
-    return _fetch_news("Korea real estate housing market", limit)
+    return _ko_then_en(
+        ko_queries=["아파트 부동산 서울", "부동산 시세 매매", "한국 부동산"],
+        en_queries=["Korea real estate housing market"],
+        limit=limit,
+    )
 
 
 def fetch_commodity_news(limit: int = 8) -> list[dict]:
-    results = _fetch_news(
-        "gold silver copper oil uranium lithium commodity",
-        limit,
+    return _ko_then_en(
+        ko_queries=["금 은 구리 원유 원자재", "금값 유가 원자재 투자"],
+        en_queries=["gold silver copper oil uranium lithium commodity", "commodity metals energy"],
+        limit=limit,
     )
-    if not results:
-        results = _fetch_news("commodity metals energy", limit)
-    return results
 
 
 def fetch_bond_news(limit: int = 8) -> list[dict]:
-    results = _fetch_news(
-        "treasury bonds yield interest rate Fed Federal Reserve",
-        limit,
+    return _ko_then_en(
+        ko_queries=["미국채 국채 금리 연준", "채권 금리 인하 인상"],
+        en_queries=["treasury bonds yield interest rate Fed Federal Reserve", "bond yield treasury"],
+        limit=limit,
     )
-    if not results:
-        results = _fetch_news("bond yield treasury", limit)
-    return results
 
 
 def fetch_stock_market_news(limit: int = 8) -> list[dict]:
-    queries = [
-        "stock market S&P500 Nasdaq Wall Street tariff",
-        "S&P500 stocks market Fed tariff",
-        "stock market Wall Street",
-    ]
-    for q in queries:
-        results = _fetch_news(q, limit)
-        if results:
-            return results
-    return []
+    return _ko_then_en(
+        ko_queries=["미국증시 나스닥 S&P500 관세", "뉴욕증시 월가 주식시장"],
+        en_queries=["stock market S&P500 Nasdaq Wall Street tariff", "S&P500 stocks market Fed tariff"],
+        limit=limit,
+    )
 
 
 def fetch_asia_market_news(limit: int = 6) -> list[dict]:
-    queries = [
-        "Kospi Korea stock market",
-        "Asian markets stocks",
-        "Korea market stocks",
-    ]
-    for q in queries:
-        results = _fetch_news(q, limit)
-        if results:
-            return results
-    return []
+    return _ko_then_en(
+        ko_queries=["코스피 코스닥 한국증시", "아시아증시 일본 중국"],
+        en_queries=["Kospi Korea stock market", "Asian markets stocks"],
+        limit=limit,
+    )
 
 
 def _fetch_rss_headlines(rss_url: str, ttl: float = HEADLINE_CACHE_TTL) -> list[dict]:
