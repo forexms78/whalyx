@@ -38,6 +38,7 @@ interface MarketDriver {
   direction: string;
   url?: string;
   source?: string;
+  image_url?: string;
 }
 
 const SENTIMENT_CONFIG = {
@@ -166,17 +167,23 @@ export default function TodayPicksPage() {
 
         {/* 오늘의 핵심 뉴스 3선 */}
         {(loadingDrivers || drivers.length > 0) && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-              오늘의 핵심 뉴스 3선
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                오늘의 핵심 뉴스
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20,
+                background: "var(--accent)", color: "#fff", letterSpacing: "0.04em",
+              }}>3</span>
             </div>
             {loadingDrivers ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[0, 1, 2].map(i => <SkeletonCard key={i} height={72} />)}
+              <div className="driver-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[0, 1, 2].map(i => <SkeletonCard key={i} height={200} />)}
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {drivers.slice(0, 3).map((d, i) => <MarketDriverCard key={i} driver={d} />)}
+              <div className="driver-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                {drivers.slice(0, 3).map((d, i) => <MarketDriverCard key={i} driver={d} rank={i + 1} />)}
               </div>
             )}
           </div>
@@ -318,15 +325,15 @@ export default function TodayPicksPage() {
   );
 }
 
-const DRIVER_DIRECTION: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  bullish: { label: "강세", color: "#10b981", bg: "rgba(16,185,129,0.08)", icon: "▲" },
-  bearish: { label: "약세", color: "#ef4444", bg: "rgba(239,68,68,0.08)",  icon: "▼" },
-  mixed:   { label: "혼조", color: "#eab308", bg: "rgba(234,179,8,0.08)",   icon: "◆" },
+const DRIVER_DIRECTION: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
+  bullish: { label: "강세", color: "#10b981", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)", icon: "▲" },
+  bearish: { label: "약세", color: "#ef4444", bg: "rgba(239,68,68,0.07)",  border: "rgba(239,68,68,0.25)",  icon: "▼" },
+  mixed:   { label: "혼조", color: "#eab308", bg: "rgba(234,179,8,0.07)",  border: "rgba(234,179,8,0.25)",  icon: "◆" },
 };
 
-function MarketDriverCard({ driver }: { driver: MarketDriver }) {
+function MarketDriverCard({ driver, rank }: { driver: MarketDriver; rank: number }) {
   const dir = DRIVER_DIRECTION[driver.direction?.toLowerCase()] ?? DRIVER_DIRECTION.mixed;
-  const Wrapper = driver.url ? "a" : "div";
+  const Wrapper = driver.url ? "a" : ("div" as React.ElementType);
   const linkProps = driver.url
     ? { href: driver.url, target: "_blank", rel: "noopener noreferrer" }
     : {};
@@ -335,50 +342,99 @@ function MarketDriverCard({ driver }: { driver: MarketDriver }) {
     <Wrapper
       {...linkProps}
       style={{
-        display: "flex", alignItems: "center", gap: 14,
+        display: "flex", flexDirection: "column",
         background: "var(--card)",
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        padding: "14px 16px",
+        border: `1px solid ${dir.border}`,
+        borderRadius: 14,
+        overflow: "hidden",
         textDecoration: "none",
         color: "inherit",
-        transition: "background 0.15s",
+        transition: "transform 0.15s, box-shadow 0.15s",
         cursor: driver.url ? "pointer" : "default",
+        position: "relative",
       }}
       onMouseEnter={driver.url ? (e: React.MouseEvent<HTMLElement>) => {
-        (e.currentTarget as HTMLElement).style.background = "var(--card-hover)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = `0 8px 24px ${dir.color}18`;
       } : undefined}
       onMouseLeave={driver.url ? (e: React.MouseEvent<HTMLElement>) => {
-        (e.currentTarget as HTMLElement).style.background = "var(--card)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       } : undefined}
     >
-      {/* 방향 뱃지 */}
+      {/* 썸네일 이미지 */}
       <div style={{
-        width: 42, height: 42, flexShrink: 0,
-        borderRadius: 10,
+        width: "100%", height: 110, flexShrink: 0,
         background: dir.bg,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 1,
+        position: "relative", overflow: "hidden",
       }}>
-        <span style={{ fontSize: 14, color: dir.color, lineHeight: 1 }}>{dir.icon}</span>
-        <span style={{ fontSize: 9, fontWeight: 700, color: dir.color, letterSpacing: "0.04em" }}>{dir.label}</span>
+        {driver.image_url ? (
+          <img
+            src={driver.image_url}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            onError={e => {
+              const parent = (e.currentTarget as HTMLImageElement).parentElement;
+              if (parent) parent.style.background = dir.bg;
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div style={{
+            width: "100%", height: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 32, color: dir.color, opacity: 0.25,
+          }}>
+            {dir.icon}
+          </div>
+        )}
+        {/* 순위 뱃지 */}
+        <div style={{
+          position: "absolute", top: 8, left: 8,
+          width: 22, height: 22, borderRadius: 6,
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, fontWeight: 800, color: "#fff",
+        }}>
+          {rank}
+        </div>
+        {/* 방향 뱃지 */}
+        <div style={{
+          position: "absolute", top: 8, right: 8,
+          padding: "3px 8px", borderRadius: 6,
+          background: `${dir.color}cc`, backdropFilter: "blur(4px)",
+          fontSize: 10, fontWeight: 700, color: "#fff",
+          display: "flex", alignItems: "center", gap: 3,
+        }}>
+          <span style={{ fontSize: 8 }}>{dir.icon}</span>
+          {dir.label}
+        </div>
       </div>
 
-      {/* 내용 */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* 텍스트 */}
+      <div style={{ padding: "12px 14px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{
           fontSize: 13, fontWeight: 700,
           color: "var(--text-primary)",
-          lineHeight: 1.45, marginBottom: 3,
+          lineHeight: 1.45,
           overflow: "hidden", display: "-webkit-box",
-          WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
         }}>
           {driver.headline}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+        <div style={{
+          fontSize: 11, color: "var(--text-secondary)",
+          lineHeight: 1.5,
+          overflow: "hidden", display: "-webkit-box",
+          WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+        }}>
           {driver.impact}
-          {driver.source && <span style={{ marginLeft: 6, opacity: 0.6 }}>· {driver.source}</span>}
         </div>
+        {driver.source && (
+          <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: "auto", paddingTop: 4 }}>
+            {driver.source}
+          </div>
+        )}
       </div>
     </Wrapper>
   );

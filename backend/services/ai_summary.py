@@ -99,13 +99,14 @@ def generate_market_drivers(headlines: list[dict]) -> dict:
         parsed = json.loads(match.group() if match else raw)
         drivers = parsed.get("drivers", [])[:3]
 
-        # 원본 헤드라인 URL 매핑
+        # 원본 헤드라인 URL·이미지 매핑
         for d in drivers:
             idx = d.get("idx", -1)
             if 0 <= idx < len(top):
                 d["url"] = top[idx].get("url", "")
                 d["source"] = top[idx].get("source", "")
                 d["original_title"] = top[idx].get("title", "")
+                d["image_url"] = top[idx].get("image_url", "")
 
         result = {"drivers": drivers, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         _market_driver_cache = (result, now)

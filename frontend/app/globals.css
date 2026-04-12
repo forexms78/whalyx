@@ -155,6 +155,10 @@ a { color: inherit; }
   main {
     padding: 20px 16px !important;
   }
+  /* 핵심 뉴스 3선 — 모바일 1열 */
+  .driver-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 480px) {

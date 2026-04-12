@@ -40,6 +40,34 @@ def _parse_published(entry) -> str:
         return ""
 
 
+def _extract_image(entry) -> str:
+    """feedparser 엔트리에서 이미지 URL 추출 (media:thumbnail → media:content → enclosure 순)"""
+    try:
+        thumbnails = getattr(entry, "media_thumbnail", None)
+        if thumbnails:
+            return thumbnails[0].get("url", "")
+    except Exception:
+        pass
+    try:
+        contents = getattr(entry, "media_content", None)
+        if contents:
+            for mc in contents:
+                url = mc.get("url", "")
+                if url and any(ext in url.lower() for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
+                    return url
+    except Exception:
+        pass
+    try:
+        enclosures = getattr(entry, "enclosures", None)
+        if enclosures:
+            for enc in enclosures:
+                if enc.get("type", "").startswith("image/"):
+                    return enc.get("url", "")
+    except Exception:
+        pass
+    return ""
+
+
 def _fetch_news(q: str, limit: int, hl: str = "en", gl: str = "US", ceid: str = "US:en") -> list[dict]:
     cache_key = f"{q}_{limit}_{hl}_{gl}"
     now = time.time()
@@ -88,7 +116,7 @@ def _fetch_news(q: str, limit: int, hl: str = "en", gl: str = "US", ceid: str = 
                 "source": source,
                 "published_at": _parse_published(entry),
                 "url": link,
-                "image_url": "",
+                "image_url": _extract_image(entry),
             })
 
             if len(result) >= limit:
@@ -178,47 +206,58 @@ def fetch_asia_market_news(limit: int = 6) -> list[dict]:
     return []
 
 
+def _fetch_rss_headlines(rss_url: str) -> list[dict]:
+    """RSS URL에서 헤드라인 목록 파싱 (캐시 포함)"""
+    cache_key = f"top_headlines_{rss_url}"
+    now = time.time()
+    cached = _news_cache.get(cache_key)
+    if cached and now - cached[1] < NEWS_CACHE_TTL:
+        return cached[0]
+    try:
+        feed = feedparser.parse(rss_url)
+        entries = []
+        for entry in feed.entries:
+            title = entry.get("title", "")
+            link = entry.get("link", "")
+            source = entry.get("source", {}).get("title", "") if hasattr(entry.get("source", ""), "get") else ""
+            if not title:
+                continue
+            entries.append({
+                "title": title,
+                "description": entry.get("summary", ""),
+                "source": source,
+                "published_at": _parse_published(entry),
+                "url": link,
+                "image_url": _extract_image(entry),
+            })
+        _news_cache[cache_key] = (entries, time.time())
+        return entries
+    except Exception:
+        return []
+
+
 def fetch_top_headlines(limit: int = 20) -> list[dict]:
-    """글로벌 종합 헤드라인 — 비즈니스 + 세계 뉴스 병합 (마켓 드라이버 분석용)"""
-    business_url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en&gl=US&ceid=US:en"
-    world_url = "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en&gl=US&ceid=US:en"
+    """글로벌+한국 종합 헤드라인 — 한국 비즈니스 우선, 미국 글로벌 보완 (마켓 드라이버 분석용)"""
+    rss_urls = [
+        # 한국 비즈니스·경제 (우선 반영)
+        "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko",
+        "https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko",
+        # 글로벌 보완
+        "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en&gl=US&ceid=US:en",
+        "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en&gl=US&ceid=US:en",
+    ]
 
     seen_titles: set[str] = set()
     result = []
 
-    for url in [business_url, world_url]:
-        cache_key = f"top_headlines_{url}"
-        now = time.time()
-        cached = _news_cache.get(cache_key)
-        if cached and now - cached[1] < NEWS_CACHE_TTL:
-            entries = cached[0]
-        else:
-            try:
-                feed = feedparser.parse(url)
-                entries = []
-                for entry in feed.entries:
-                    title = entry.get("title", "")
-                    link = entry.get("link", "")
-                    source = entry.get("source", {}).get("title", "") if hasattr(entry.get("source", ""), "get") else ""
-                    if not title:
-                        continue
-                    entries.append({
-                        "title": title,
-                        "description": entry.get("summary", ""),
-                        "source": source,
-                        "published_at": _parse_published(entry),
-                        "url": link,
-                        "image_url": "",
-                    })
-                _news_cache[cache_key] = (entries, time.time())
-            except Exception:
-                entries = []
-
-        for item in entries:
+    for url in rss_urls:
+        for item in _fetch_rss_headlines(url):
             title_key = item["title"][:40].lower()
             if title_key not in seen_titles:
                 seen_titles.add(title_key)
                 result.append(item)
+        if len(result) >= limit:
+            break
 
     return result[:limit]
 
