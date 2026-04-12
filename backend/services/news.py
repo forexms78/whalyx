@@ -1,11 +1,78 @@
+import re
 import time
 import feedparser
+import requests as _req
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote_plus
 from email.utils import parsedate_to_datetime
 
 _news_cache: dict[str, tuple[list[dict], float]] = {}
 NEWS_CACHE_TTL    = 900  # 15분 — 검색 쿼리 캐시
 HEADLINE_CACHE_TTL = 300  # 5분  — 헤드라인 RSS 캐시
+
+_OG_CACHE: dict[str, tuple[str, float]] = {}  # url → (og_image_url, fetched_at)
+_OG_CACHE_TTL = 3600  # OG 이미지 URL은 1시간 캐시
+
+_OG_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+}
+
+def _fetch_og_image(url: str) -> str:
+    """기사 URL → og:image 추출 (Google News 리다이렉트 자동 추적, 1시간 캐시)"""
+    if not url:
+        return ""
+    now = time.time()
+    cached = _OG_CACHE.get(url)
+    if cached and now - cached[1] < _OG_CACHE_TTL:
+        return cached[0]
+    try:
+        r = _req.get(url, timeout=5, allow_redirects=True, headers=_OG_HEADERS)
+        html = r.text
+
+        # property="og:image" content="..." 순서
+        m = re.search(r'property=["\']og:image["\'][^>]*content=["\']([^"\']+)', html, re.IGNORECASE)
+        # content="..." property="og:image" 순서
+        if not m:
+            m = re.search(r'content=["\']([^"\']+)["\'][^>]*property=["\']og:image', html, re.IGNORECASE)
+        # name="twitter:image" 폴백
+        if not m:
+            m = re.search(r'name=["\']twitter:image["\'][^>]*content=["\']([^"\']+)', html, re.IGNORECASE)
+
+        img = m.group(1).strip() if m else ""
+        # HTML 엔티티 디코드 (&amp; → &)
+        img = img.replace("&amp;", "&").replace("&quot;", '"')
+        # data: URI 또는 너무 짧은 값 제외
+        if img.startswith("data:") or len(img) < 15:
+            img = ""
+        _OG_CACHE[url] = (img, now)
+        return img
+    except Exception:
+        _OG_CACHE[url] = ("", now)
+        return ""
+
+
+def enrich_with_og_images(items: list[dict], max_workers: int = 6) -> list[dict]:
+    """RSS 이미지가 없는 뉴스에 OG 이미지를 병렬로 추가 (이미 있으면 스킵)"""
+    needs = [(i, item) for i, item in enumerate(items) if not item.get("image_url")]
+    if not needs:
+        return items
+
+    result = [dict(item) for item in items]
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(_fetch_og_image, item["url"]): i for i, item in needs}
+        for future in as_completed(futures, timeout=8):
+            idx = futures[future]
+            try:
+                result[idx]["image_url"] = future.result()
+            except Exception:
+                pass
+    return result
 
 _BLOCKED_DOMAINS = {
     "pypi.org", "github.com", "npmjs.com", "stackoverflow.com",
@@ -221,11 +288,15 @@ def _fetch_rss_headlines(rss_url: str, ttl: float = HEADLINE_CACHE_TTL) -> list[
         return cached[0]
     try:
         feed = feedparser.parse(rss_url)
+        # 채널 레벨 소스명 (entry에 없을 때 폴백)
+        channel_title = getattr(feed.feed, "title", "") or ""
         entries = []
         for entry in feed.entries:
             title = entry.get("title", "")
             link = entry.get("link", "")
-            source = entry.get("source", {}).get("title", "") if hasattr(entry.get("source", ""), "get") else ""
+            # entry 레벨 source → 없으면 채널 타이틀
+            src_obj = entry.get("source", "")
+            source = (src_obj.get("title", "") if hasattr(src_obj, "get") else "") or channel_title
             if not title:
                 continue
             entries.append({
@@ -243,21 +314,48 @@ def _fetch_rss_headlines(rss_url: str, ttl: float = HEADLINE_CACHE_TTL) -> list[
 
 
 def fetch_korean_headlines(limit: int = 15) -> list[dict]:
-    """한국어 Google News 최상위 헤드라인 — 한국 사용자 화면 기준 글로벌 뉴스 (한국어)
-    Gemini 분석 없이 RSS만 5분 캐시로 빠르게 반환.
+    """한국 주요 언론사 RSS 직접 수집 — 이미지 포함, 5분 캐시.
+    Google News RSS는 이미지를 제공하지 않아 조선일보·동아일보 RSS를 직접 사용.
+    카테고리 다양성 확보: 국제·정치·경제·사회 섞어서 반환.
     """
-    rss_urls = [
-        # 메인 탑스토리 (한국 사용자 기준)
-        "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
-        # 비즈니스·경제 섹션
-        "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko",
-        # 세계 뉴스 섹션
-        "https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko",
+    # (RSS URL, 카테고리 레이블)
+    rss_sources = [
+        ("https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml", "국제"),
+        ("https://rss.donga.com/economy.xml", "경제"),
+        ("https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml", "정치"),
+        ("https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml", "종합"),
+        ("https://rss.donga.com/total.xml", "종합"),
     ]
 
     seen_titles: set[str] = set()
     result: list[dict] = []
 
+    for rss_url, category in rss_sources:
+        for item in _fetch_rss_headlines(rss_url, ttl=HEADLINE_CACHE_TTL):
+            # 이미지 없는 항목 먼저 제외 (이미지 있는 것 우선)
+            title_key = item["title"][:40].lower()
+            if title_key in seen_titles:
+                continue
+            seen_titles.add(title_key)
+            result.append({**item, "category": item.get("category", category)})
+        if len(result) >= limit:
+            break
+
+    # 이미지 있는 것 앞으로 정렬 후 limit
+    with_img = [i for i in result if i.get("image_url")]
+    without  = [i for i in result if not i.get("image_url")]
+    return (with_img + without)[:limit]
+
+
+def fetch_top_headlines(limit: int = 20) -> list[dict]:
+    """Gemini 마켓 드라이버 분석용 헤드라인 — 텍스트만 필요, Google News 한국어 RSS"""
+    rss_urls = [
+        "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko",
+        "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=ko&gl=KR&ceid=KR:ko",
+        "https://news.google.com/rss/headlines/section/topic/WORLD?hl=ko&gl=KR&ceid=KR:ko",
+    ]
+    seen_titles: set[str] = set()
+    result: list[dict] = []
     for url in rss_urls:
         for item in _fetch_rss_headlines(url, ttl=HEADLINE_CACHE_TTL):
             title_key = item["title"][:40].lower()
@@ -266,13 +364,7 @@ def fetch_korean_headlines(limit: int = 15) -> list[dict]:
                 result.append(item)
         if len(result) >= limit:
             break
-
     return result[:limit]
-
-
-def fetch_top_headlines(limit: int = 20) -> list[dict]:
-    """Gemini 마켓 드라이버 분석용 헤드라인 — 한국어 우선, 글로벌 보완"""
-    return fetch_korean_headlines(limit)
 
 
 def fetch_korean_market_news(limit: int = 6) -> list[dict]:
@@ -298,7 +390,7 @@ def fetch_korean_market_news(limit: int = 6) -> list[dict]:
 
 
 def fetch_market_news_all() -> dict[str, list[dict]]:
-    return {
+    raw: dict[str, list[dict]] = {
         "주식": fetch_stock_market_news(6),
         "코인": fetch_crypto_news(6),
         "부동산": fetch_realestate_news(5),
@@ -306,3 +398,15 @@ def fetch_market_news_all() -> dict[str, list[dict]]:
         "채권": fetch_bond_news(5),
         "한국": fetch_korean_market_news(6),
     }
+    # 전체 기사 OG 이미지 일괄 병렬 보강
+    all_items = [item for items in raw.values() for item in items]
+    enriched = enrich_with_og_images(all_items, max_workers=8)
+
+    # 카테고리별로 재분배
+    idx = 0
+    result: dict[str, list[dict]] = {}
+    for cat, items in raw.items():
+        n = len(items)
+        result[cat] = enriched[idx:idx + n]
+        idx += n
+    return result
