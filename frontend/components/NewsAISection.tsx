@@ -76,21 +76,29 @@ export default function NewsAISection() {
           <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
             AI News Intelligence
           </span>
-          <span style={{
-            fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
-            background: sc.bg, color: sc.color, border: `1px solid ${sc.color}44`,
-          }}>
-            {sc.label} {data.sentiment_score}
-          </span>
+          {data.summary && (
+            <span style={{
+              fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
+              background: sc.bg, color: sc.color, border: `1px solid ${sc.color}44`,
+            }}>
+              {sc.label} {data.sentiment_score}
+            </span>
+          )}
           <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto" }}>
             {data.updated_at ? new Date(data.updated_at).toLocaleString("ko-KR") : ""}
           </span>
         </div>
 
-        {/* 종합 요약 */}
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.75, marginBottom: 16 }}>
-          {data.summary}
-        </p>
+        {/* 종합 요약 — AI 분석 완료 시만 표시 */}
+        {data.summary ? (
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.75, marginBottom: 16 }}>
+            {data.summary}
+          </p>
+        ) : (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+            AI 분석을 준비 중입니다. 최신 뉴스는 아래에서 확인하세요.
+          </p>
+        )}
 
         {/* 핵심 테마 */}
         {themes.length > 0 && (

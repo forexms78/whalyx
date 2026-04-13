@@ -123,6 +123,31 @@ _news_ai_cache: tuple[dict, float] | None = None
 _NEWS_AI_TTL = 1800  # 30분
 
 
+def _build_news_without_ai(top: list[dict]) -> dict:
+    """Gemini 실패 시 AI 요약 없이 뉴스만 담은 결과 반환"""
+    enriched = [
+        {
+            "title": item["title"],
+            "source": item.get("source", ""),
+            "published_at": item.get("published_at", ""),
+            "url": item.get("url", ""),
+            "image_url": item.get("image_url", ""),
+            "category": item["category"],
+            "ai_summary": "",
+            "sentiment": "neutral",
+        }
+        for item in top
+    ]
+    return {
+        "sentiment": "Neutral",
+        "sentiment_score": 50,
+        "summary": "",
+        "themes": [],
+        "news": enriched,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+
 def generate_news_analysis(news_by_category: dict[str, list[dict]]) -> dict:
     global _news_ai_cache
     now = time.time()
@@ -135,8 +160,7 @@ def generate_news_analysis(news_by_category: dict[str, list[dict]]) -> dict:
         for a in articles:
             all_news.append({**a, "category": category})
 
-    # Gemini에 보낼 헤드라인 (최대 20개)
-    top = all_news[:20]
+    top = all_news[:15]  # 20→15 경량화
     headlines = "\n".join(
         f"[{i}] ({item['category']}) {item['title']}"
         for i, item in enumerate(top)
@@ -160,10 +184,19 @@ def generate_news_analysis(news_by_category: dict[str, list[dict]]) -> dict:
 }}
 themes는 3개, articles는 뉴스 전체 인덱스에 대해 작성하세요."""
 
-    raw = call_gemini(prompt, SYSTEM)
-    # JSON 추출 (마크다운 코드블록 방어)
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    parsed = json.loads(match.group() if match else raw)
+    # Gemini 호출 + JSON 파싱 — 실패 시 뉴스만 반환
+    try:
+        raw = call_gemini(prompt, SYSTEM)
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        parsed = json.loads(match.group() if match else raw)
+    except Exception as e:
+        print(f"[news_ai] Gemini/파싱 실패: {e} — 뉴스 데이터만 저장")
+        fallback = _build_news_without_ai(top)
+        # 기존 메모리 캐시가 있으면 그것 우선, 없으면 뉴스만 저장
+        if _news_ai_cache:
+            return _news_ai_cache[0]
+        _news_ai_cache = (fallback, now)
+        return fallback
 
     # articles 인덱스로 뉴스에 ai_summary 매핑
     ai_map = {a["idx"]: a for a in parsed.get("articles", [])}
