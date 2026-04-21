@@ -346,10 +346,9 @@ def fetch_korean_headlines(limit: int = 15) -> list[dict]:
         if len(result) >= limit:
             break
 
-    # 이미지 있는 것 앞으로 정렬 후 limit
-    with_img = [i for i in result if i.get("image_url")]
-    without  = [i for i in result if not i.get("image_url")]
-    return (with_img + without)[:limit]
+    # 최신순 정렬 후 limit
+    result.sort(key=lambda x: x.get("published_at") or "", reverse=True)
+    return result[:limit]
 
 
 def fetch_top_headlines(limit: int = 20) -> list[dict]:
