@@ -99,6 +99,7 @@ export default function StockDetailPage() {
         <Link href="/" className="text-blue-400 font-bold text-lg">Whalyx Quant</Link>
         <Link href="/" className="text-gray-400 hover:text-white text-sm">리서치 저널</Link>
         <Link href="/autotrade" className="text-gray-400 hover:text-white text-sm">자동매매</Link>
+        <Link href="/dashboard" className="text-gray-600 hover:text-gray-400 text-sm border-l border-gray-800 pl-6">레거시</Link>
       </nav>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">

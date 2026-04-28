@@ -56,6 +56,7 @@ export default function Home() {
         <div className="flex gap-6">
           <span className="text-white text-sm border-b border-blue-400 pb-1">리서치 저널</span>
           <Link href="/autotrade" className="text-gray-400 hover:text-white text-sm">자동매매</Link>
+          <Link href="/dashboard" className="text-gray-600 hover:text-gray-400 text-sm border-l border-gray-800 pl-6">레거시</Link>
         </div>
       </nav>
 
