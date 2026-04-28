@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SignalBadge from "@/components/quant/SignalBadge";
 import PasswordGate from "@/components/quant/PasswordGate";
@@ -21,15 +21,45 @@ interface Holding {
   pnl_pct: number;
 }
 
+interface TradeDetails {
+  ma5?: number;
+  ma20?: number;
+  rsi?: number;
+  macd_ok?: boolean;
+  vol_ok?: boolean;
+  mtf_ok?: boolean;
+  per?: number;
+  pbr?: number;
+  pos_mult?: number;
+  financial_filter_passed?: boolean;
+  financial_filter_reason?: string;
+  news_sentiment?: number;
+  news_category?: string;
+  amount_invested?: number;
+  pnl_pct?: number;
+  trailing_activated?: boolean;
+}
+
 interface Trade {
-  id: string;
+  id: number;
   ticker: string;
   action: string;
   price: number;
   quantity: number;
   amount: number;
   reason: string;
+  market?: string;
   executed_at: string;
+  details?: TradeDetails;
+}
+
+interface WsNotification {
+  ticker: string;
+  action: string;
+  price: number;
+  quantity: number;
+  reason: string;
+  market: string;
 }
 
 interface Signal {
@@ -73,15 +103,19 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 function AutoTradeContent() {
-  const [status,  setStatus]  = useState<Status | null>(null);
-  const [trades,  setTrades]  = useState<Trade[]>([]);
-  const [signals, setSignals] = useState<Signal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"signals" | "backtest">("signals");
-  const [btTicker, setBtTicker] = useState("");
-  const [btMarket, setBtMarket] = useState("KR");
-  const [btResult, setBtResult] = useState<BacktestResult | null>(null);
-  const [btLoading, setBtLoading] = useState(false);
+  const [status,       setStatus]       = useState<Status | null>(null);
+  const [trades,       setTrades]       = useState<Trade[]>([]);
+  const [signals,      setSignals]      = useState<Signal[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [activeTab,    setActiveTab]    = useState<"signals" | "backtest">("signals");
+  const [btTicker,     setBtTicker]     = useState("");
+  const [btMarket,     setBtMarket]     = useState("KR");
+  const [btResult,     setBtResult]     = useState<BacktestResult | null>(null);
+  const [btLoading,    setBtLoading]    = useState(false);
+  const [expandedId,   setExpandedId]   = useState<number | null>(null);
+  const [wsNotif,      setWsNotif]      = useState<WsNotification | null>(null);
+  const [wsConnected,  setWsConnected]  = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -94,6 +128,43 @@ function AutoTradeContent() {
       setSignals(Array.isArray(sig) ? sig : []);
       setLoading(false);
     });
+  }, []);
+
+  // WebSocket 연결
+  useEffect(() => {
+    if (!API) return;
+    const wsUrl = API.replace(/^https?/, (m) => (m === "https" ? "wss" : "ws")) + "/ws/signals";
+    let ws: WebSocket;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => setWsConnected(true);
+      ws.onclose = () => {
+        setWsConnected(false);
+        retryTimer = setTimeout(connect, 5000);
+      };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "trade") {
+            setWsNotif(data as WsNotification);
+            // 체결 이력 실시간 갱신
+            fetch(`${API}/autotrade/trades`).then(r => r.json()).then(t => setTrades(Array.isArray(t) ? t : [])).catch(() => {});
+            // 3초 후 알림 제거
+            setTimeout(() => setWsNotif(null), 5000);
+          }
+        } catch { /* ignore */ }
+      };
+    }
+    connect();
+    return () => {
+      clearTimeout(retryTimer);
+      ws?.close();
+    };
   }, []);
 
   async function runBacktest() {
@@ -178,6 +249,34 @@ function AutoTradeContent() {
         </div>
       </header>
 
+      {/* 실시간 매매 알림 토스트 */}
+      {wsNotif && (
+        <div style={{
+          position: "fixed", top: 72, right: 24, zIndex: 200,
+          background: wsNotif.action === "buy" ? "var(--green-dim)" : "var(--red-dim)",
+          border: `1px solid ${wsNotif.action === "buy" ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)"}`,
+          borderRadius: 12, padding: "14px 18px", minWidth: 260,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          animation: "fadeInDown 0.3s ease",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 4,
+              background: wsNotif.action === "buy" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)",
+              color: wsNotif.action === "buy" ? "var(--green)" : "var(--red)",
+            }}>
+              {wsNotif.action === "buy" ? "매수 체결" : "매도 체결"}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{wsNotif.ticker}</span>
+            <span style={{ fontSize: 10, marginLeft: "auto", color: "var(--text-muted)" }}>{wsNotif.market}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)" }}>
+            {wsNotif.market === "US" ? "$" : "₩"}{wsNotif.price.toLocaleString()} × {wsNotif.quantity}주
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--text-muted)" }}>{wsNotif.reason}</p>
+        </div>
+      )}
+
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
 
         <div>
@@ -229,13 +328,23 @@ function AutoTradeContent() {
               {label} <strong style={{ color }}>{value}</strong>
             </span>
           ))}
-          <span style={{
-            marginLeft: "auto", fontSize: 11, fontWeight: 700, padding: "3px 10px",
-            borderRadius: 6, border: `1px solid ${systemOn ? "rgba(16,185,129,0.4)" : "var(--border)"}`,
-            color: systemOn ? "var(--green)" : "var(--text-muted)",
-            background: systemOn ? "var(--green-dim)" : "transparent",
-          }}>
-            {systemOn ? "ON" : "OFF"}
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
+              border: `1px solid ${wsConnected ? "rgba(99,102,241,0.4)" : "var(--border)"}`,
+              color: wsConnected ? "#818cf8" : "var(--text-muted)",
+              background: wsConnected ? "rgba(99,102,241,0.1)" : "transparent",
+            }}>
+              {wsConnected ? "● 실시간" : "○ 연결 중"}
+            </span>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: "3px 10px",
+              borderRadius: 6, border: `1px solid ${systemOn ? "rgba(16,185,129,0.4)" : "var(--border)"}`,
+              color: systemOn ? "var(--green)" : "var(--text-muted)",
+              background: systemOn ? "var(--green-dim)" : "transparent",
+            }}>
+              {systemOn ? "ON" : "OFF"}
+            </span>
           </span>
         </div>
 
@@ -513,30 +622,77 @@ function AutoTradeContent() {
             <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "32px 0" }}>체결 내역이 없습니다.</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, borderLeft: "2px solid var(--border)", paddingLeft: 20 }}>
-              {trades.map((t) => (
-                <div key={t.id} style={{ paddingBottom: 18, paddingTop: 2 }}>
-                  <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "0 0 6px" }}>
-                    {new Date(t.executed_at).toLocaleString("ko-KR")}
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{
-                      fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 700,
-                      background: t.action === "buy" ? "var(--green-dim)" : "var(--red-dim)",
-                      color: t.action === "buy" ? "var(--green)" : "var(--red)",
-                      border: `1px solid ${t.action === "buy" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
-                    }}>
-                      {t.action === "buy" ? "매수" : "매도"}
-                    </span>
-                    <span style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 600 }}>{t.ticker}</span>
-                    <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-                      {t.price.toLocaleString()}원 × {t.quantity}주
-                    </span>
-                    <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: "auto" }}>
-                      {REASON_LABEL[t.reason] || t.reason}
-                    </span>
+              {trades.map((t) => {
+                const isExpanded = expandedId === t.id;
+                const isUS = t.market === "US";
+                const priceStr = isUS ? `$${t.price.toLocaleString()}` : `${t.price.toLocaleString()}원`;
+                return (
+                  <div key={t.id} style={{ paddingBottom: 18, paddingTop: 2 }}>
+                    <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "0 0 6px" }}>
+                      {new Date(t.executed_at).toLocaleString("ko-KR")}
+                    </p>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: t.details ? "pointer" : "default" }}
+                      onClick={() => t.details && setExpandedId(isExpanded ? null : t.id)}
+                    >
+                      <span style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 700,
+                        background: t.action === "buy" ? "var(--green-dim)" : "var(--red-dim)",
+                        color: t.action === "buy" ? "var(--green)" : "var(--red)",
+                        border: `1px solid ${t.action === "buy" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                      }}>
+                        {t.action === "buy" ? "매수" : "매도"}
+                      </span>
+                      <span style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 600 }}>{t.ticker}</span>
+                      {t.market && (
+                        <span style={{ fontSize: 10, color: isUS ? "#818cf8" : "var(--green)" }}>
+                          {isUS ? "🇺🇸" : "🇰🇷"}
+                        </span>
+                      )}
+                      <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                        {priceStr} × {t.quantity}주
+                      </span>
+                      <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: "auto" }}>
+                        {REASON_LABEL[t.reason] || t.reason}
+                      </span>
+                      {t.details && (
+                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{isExpanded ? "▲" : "▼"}</span>
+                      )}
+                    </div>
+
+                    {/* 상세 분석 패널 */}
+                    {isExpanded && t.details && (
+                      <div style={{
+                        marginTop: 10, padding: "12px 14px",
+                        background: "var(--bg-2)", borderRadius: 8,
+                        border: "1px solid var(--border)", fontSize: 11,
+                        display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "6px 16px",
+                      }}>
+                        {[
+                          { label: "MA5",     value: t.details.ma5?.toFixed(2) },
+                          { label: "MA20",    value: t.details.ma20?.toFixed(2) },
+                          { label: "RSI",     value: t.details.rsi?.toFixed(1) },
+                          { label: "MACD",    value: t.details.macd_ok == null ? "-" : t.details.macd_ok ? "상승 ↑" : "하락 ↓", color: t.details.macd_ok ? "var(--green)" : t.details.macd_ok === false ? "var(--red)" : undefined },
+                          { label: "거래량",  value: t.details.vol_ok == null ? "-" : t.details.vol_ok ? "충족" : "부족",       color: t.details.vol_ok  ? "var(--green)" : t.details.vol_ok  === false ? "var(--red)" : undefined },
+                          { label: "MTF",     value: t.details.mtf_ok == null ? "-" : t.details.mtf_ok ? "정배열" : "역배열",   color: t.details.mtf_ok  ? "var(--green)" : t.details.mtf_ok  === false ? "var(--red)" : undefined },
+                          { label: "PER",     value: t.details.per?.toFixed(1) },
+                          { label: "PBR",     value: t.details.pbr?.toFixed(2) },
+                          { label: "포지션배율", value: t.details.pos_mult != null ? `×${t.details.pos_mult}` : "-" },
+                          { label: "재무필터", value: t.details.financial_filter_passed == null ? "-" : t.details.financial_filter_passed ? "통과" : `탈락: ${t.details.financial_filter_reason}`, color: t.details.financial_filter_passed ? "var(--green)" : "var(--red)" },
+                          { label: "뉴스감성", value: t.details.news_sentiment != null ? `${t.details.news_sentiment.toFixed(2)} (${t.details.news_category || "-"})` : "-" },
+                          { label: "투자금액", value: t.details.amount_invested != null ? (isUS ? `$${t.details.amount_invested.toFixed(0)}` : `${Math.round(t.details.amount_invested).toLocaleString()}원`) : "-" },
+                          { label: "수익률",  value: t.details.pnl_pct != null ? `${t.details.pnl_pct > 0 ? "+" : ""}${t.details.pnl_pct.toFixed(2)}%` : "-", color: t.details.pnl_pct != null ? (t.details.pnl_pct >= 0 ? "var(--green)" : "var(--red)") : undefined },
+                        ].filter(item => item.value != null).map(({ label, value, color }) => (
+                          <div key={label}>
+                            <span style={{ color: "var(--text-muted)" }}>{label}: </span>
+                            <span style={{ color: color || "var(--text-primary)", fontWeight: 600 }}>{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

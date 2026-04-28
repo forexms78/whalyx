@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.services.investors import get_investor
@@ -14,6 +14,8 @@ from backend.services.quant_analyzer import analyze as quant_analyze, calculate_
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from backend.services.scheduler import create_scheduler, warm_all_caches
+    from backend.services import ws_manager
+    ws_manager.set_loop(asyncio.get_event_loop())
     scheduler = create_scheduler()
     scheduler.start()
     asyncio.create_task(warm_all_caches())
@@ -627,3 +629,24 @@ async def get_vkospi_endpoint():
     from backend.services.kis_trader import get_vkospi
     v = await _run(get_vkospi)
     return {"vkospi": v, "halve_threshold": 25.0, "position_mult": 0.5 if (v or 0) >= 25.0 else 1.0}
+
+
+@app.get("/autotrade/trades/{trade_id}/details")
+async def trade_details(trade_id: int):
+    """매매 상세 분석 기록 조회"""
+    result = _sb().table("auto_trades").select("*").eq("id", trade_id).single().execute()
+    if not result.data:
+        raise HTTPException(404, "거래 기록 없음")
+    return result.data
+
+
+# ── WebSocket — 실시간 매매 알림 ─────────────────────────────────────────────────
+@app.websocket("/ws/signals")
+async def ws_signals(ws: WebSocket):
+    from backend.services import ws_manager
+    await ws_manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()  # ping 유지
+    except WebSocketDisconnect:
+        ws_manager.disconnect(ws)

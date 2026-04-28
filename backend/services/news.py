@@ -6,12 +6,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote_plus
 from email.utils import parsedate_to_datetime
 
-_news_cache: dict[str, tuple[list[dict], float]] = {}
-NEWS_CACHE_TTL    = 900  # 15분 — 검색 쿼리 캐시
-HEADLINE_CACHE_TTL = 300  # 5분  — 헤드라인 RSS 캐시
+from backend.services import redis_cache as _rc
+NEWS_CACHE_TTL     = 900   # 15분 — 검색 쿼리 캐시
+HEADLINE_CACHE_TTL = 300   # 5분  — 헤드라인 RSS 캐시
 
-_OG_CACHE: dict[str, tuple[str, float]] = {}  # url → (og_image_url, fetched_at)
-_OG_CACHE_TTL = 3600  # OG 이미지 URL은 1시간 캐시
+_OG_CACHE: dict[str, tuple[str, float]] = {}  # url → (og_image_url, fetched_at)  (OG는 인메모리 유지)
+_OG_CACHE_TTL = 3600
 
 _OG_HEADERS = {
     "User-Agent": (
@@ -142,11 +142,10 @@ def _extract_image(entry) -> str:
 
 
 def _fetch_news(q: str, limit: int, hl: str = "en", gl: str = "US", ceid: str = "US:en") -> list[dict]:
-    cache_key = f"{q}_{limit}_{hl}_{gl}"
-    now = time.time()
-    cached = _news_cache.get(cache_key)
-    if cached and now - cached[1] < NEWS_CACHE_TTL:
-        return cached[0]
+    cache_key = f"news:{q}:{limit}:{hl}:{gl}"
+    cached = _rc.get(cache_key)
+    if cached is not None:
+        return cached
 
     url = (
         f"https://news.google.com/rss/search?"
@@ -195,7 +194,7 @@ def _fetch_news(q: str, limit: int, hl: str = "en", gl: str = "US", ceid: str = 
             if len(result) >= limit:
                 break
 
-        _news_cache[cache_key] = (result, time.time())
+        _rc.set(cache_key, result, ttl=NEWS_CACHE_TTL)
         return result
     except Exception:
         return []
@@ -286,11 +285,10 @@ def fetch_asia_market_news(limit: int = 6) -> list[dict]:
 
 def _fetch_rss_headlines(rss_url: str, ttl: float = HEADLINE_CACHE_TTL) -> list[dict]:
     """RSS URL에서 헤드라인 목록 파싱 (캐시 포함)"""
-    cache_key = f"top_headlines_{rss_url}"
-    now = time.time()
-    cached = _news_cache.get(cache_key)
-    if cached and now - cached[1] < ttl:
-        return cached[0]
+    cache_key = f"rss:{rss_url}"
+    cached = _rc.get(cache_key)
+    if cached is not None:
+        return cached
     try:
         feed = feedparser.parse(rss_url)
         # 채널 레벨 소스명 (entry에 없을 때 폴백)
@@ -312,7 +310,7 @@ def _fetch_rss_headlines(rss_url: str, ttl: float = HEADLINE_CACHE_TTL) -> list[
                 "url": link,
                 "image_url": _extract_image(entry),
             })
-        _news_cache[cache_key] = (entries, time.time())
+        _rc.set(cache_key, entries, ttl=int(ttl))
         return entries
     except Exception:
         return []

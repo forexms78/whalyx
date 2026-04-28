@@ -31,3 +31,8 @@ yarn-error.log*
 # Logs
 *.log
 logs/
+
+# Claude / Superpowers (민감 토큰 포함)
+.mcp.json
+.claudeignore
+.superpowers/
