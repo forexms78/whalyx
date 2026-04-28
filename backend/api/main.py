@@ -9,6 +9,7 @@ from backend.services.news import fetch_investor_news, fetch_stock_news
 from backend.services.financial import get_stock_data, get_multiple_stocks_parallel
 from backend.services.coins import get_coin_detail
 from backend.services.db_cache import db_get_stale, db_set
+from backend.services.quant_analyzer import analyze as quant_analyze, calculate_metrics, calculate_signal
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -395,3 +396,149 @@ async def today_picks():
         "news": [],
         "updated_at": None,
     }
+
+
+# ── Quant: 종목 ────────────────────────────────────────────────────────────────
+from backend.services.db_cache import _get_client as _sb
+
+@app.post("/quant/stocks")
+async def add_quant_stock(body: dict):
+    ticker = body.get("ticker", "").upper()
+    market = body.get("market", "US")
+    name = body.get("name", ticker)
+    if not ticker:
+        return {"error": "ticker 필수"}
+    data = {"ticker": ticker, "market": market, "name": name}
+    result = _sb().table("quant_stocks").upsert(data, on_conflict="ticker").execute()
+    return result.data[0] if result.data else {}
+
+@app.get("/quant/stocks")
+async def list_quant_stocks():
+    result = _sb().table("quant_stocks").select("*").order("added_at", desc=True).execute()
+    return result.data or []
+
+@app.get("/quant/stocks/{ticker}")
+async def get_quant_stock(ticker: str):
+    result = _sb().table("quant_stocks").select("*").eq("ticker", ticker.upper()).execute()
+    return result.data[0] if result.data else {}
+
+# ── Quant: 분석 ────────────────────────────────────────────────────────────────
+@app.post("/quant/analyze")
+async def quant_analyze_text(body: dict):
+    text = body.get("text", "")
+    ticker = body.get("ticker", "")
+    target_pe = body.get("target_pe", 30)
+    if not text:
+        return {"error": "text 필수"}
+
+    result = await _run(quant_analyze, text, target_pe)
+    if result.get("error"):
+        return result
+
+    resolved_ticker = (result.get("ticker") or ticker).upper()
+    if resolved_ticker:
+        _sb().table("quant_stocks").upsert({
+            "ticker": resolved_ticker,
+            "market": result.get("market", "US"),
+            "name": result.get("name", resolved_ticker),
+            "current_price": result.get("current_price"),
+            "forward_eps": result.get("forward_eps"),
+            "bps": result.get("bps"),
+            "eps_growth_rate": result.get("eps_growth_rate"),
+            "target_pe": target_pe,
+            "overhang_note": result.get("overhang_note"),
+        }, on_conflict="ticker").execute()
+
+        stock = _sb().table("quant_stocks").select("id").eq("ticker", resolved_ticker).execute()
+        if stock.data:
+            _sb().table("journal_entries").insert({
+                "stock_id": stock.data[0]["id"],
+                "action": "note",
+                "price": result.get("current_price"),
+                "analysis_text": text,
+                "forward_pe": result.get("forward_pe"),
+                "fair_value_pe": result.get("fair_value_pe"),
+                "fair_value_graham": result.get("fair_value_graham"),
+                "fair_value_peg": result.get("fair_value_peg"),
+                "signal": result.get("signal"),
+            }).execute()
+
+    return result
+
+# ── Quant: 일지 ────────────────────────────────────────────────────────────────
+@app.get("/quant/journal/{ticker}")
+async def get_journal(ticker: str):
+    stock = _sb().table("quant_stocks").select("id").eq("ticker", ticker.upper()).execute()
+    if not stock.data:
+        return []
+    entries = _sb().table("journal_entries")\
+        .select("*")\
+        .eq("stock_id", stock.data[0]["id"])\
+        .order("created_at", desc=True)\
+        .execute()
+    return entries.data or []
+
+@app.post("/quant/journal")
+async def add_journal(body: dict):
+    ticker = body.get("ticker", "").upper()
+    stock = _sb().table("quant_stocks").select("id").eq("ticker", ticker).execute()
+    if not stock.data:
+        return {"error": "종목을 먼저 추가하세요"}
+    data = {
+        "stock_id": stock.data[0]["id"],
+        "action": body.get("action", "note"),
+        "price": body.get("price"),
+        "quantity": body.get("quantity"),
+        "analysis_text": body.get("analysis_text", ""),
+    }
+    result = _sb().table("journal_entries").insert(data).execute()
+    return result.data[0] if result.data else {}
+
+# ── AutoTrade: 상태·이력·시그널 ────────────────────────────────────────────────
+from datetime import datetime as _dt
+
+@app.get("/autotrade/status")
+async def autotrade_status():
+    try:
+        from backend.services.kis_trader import get_holdings as kis_holdings
+        holdings = await _run(kis_holdings)
+        trades_today = _sb().table("auto_trades")\
+            .select("*")\
+            .gte("executed_at", _dt.now().strftime("%Y-%m-%d"))\
+            .execute().data or []
+        total_invested = sum(h["current_price"] * h["quantity"] for h in holdings)
+        total_pnl = sum((h["current_price"] - h["avg_price"]) * h["quantity"] for h in holdings)
+        return {
+            "system_on": True,
+            "trades_today": len(trades_today),
+            "total_invested": round(total_invested),
+            "total_pnl_pct": round(total_pnl / total_invested * 100, 2) if total_invested else 0,
+            "holdings": holdings,
+        }
+    except Exception as e:
+        return {"system_on": False, "error": str(e), "trades_today": 0, "total_invested": 0, "total_pnl_pct": 0, "holdings": []}
+
+@app.get("/autotrade/trades")
+async def autotrade_trades():
+    result = _sb().table("auto_trades")\
+        .select("*")\
+        .order("executed_at", desc=True)\
+        .limit(50)\
+        .execute()
+    return result.data or []
+
+@app.get("/autotrade/signals")
+async def autotrade_signals():
+    stocks = _sb().table("quant_stocks").select("*").eq("market", "KR").execute().data or []
+    result = []
+    for s in stocks:
+        metrics = calculate_metrics(
+            current_price=s.get("current_price") or 0,
+            forward_eps=s.get("forward_eps") or 0,
+            bps=s.get("bps"),
+            eps_growth_rate=s.get("eps_growth_rate"),
+            target_pe=s.get("target_pe") or 30,
+        )
+        signal = calculate_signal(metrics, s.get("current_price") or 0)
+        result.append({**s, **metrics, "signal": signal})
+    return result
