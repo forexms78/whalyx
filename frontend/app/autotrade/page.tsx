@@ -41,9 +41,27 @@ interface Signal {
   current_price?: number;
   ma5?: number;
   ma20?: number;
+  rsi?: number;
+  macd_ok?: boolean;
+  vol_ok?: boolean;
+  mtf_ok?: boolean;
   per?: number;
   reason?: string;
   note?: string;
+}
+
+interface BacktestResult {
+  ticker: string;
+  market: string;
+  total_return: number;
+  sharpe: number | null;
+  mdd: number;
+  win_rate: number;
+  trade_count: number;
+  avg_hold_days: number;
+  ready_for_live: boolean;
+  verdict: string;
+  error?: string;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -55,10 +73,15 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 function AutoTradeContent() {
-  const [status, setStatus] = useState<Status | null>(null);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [status,  setStatus]  = useState<Status | null>(null);
+  const [trades,  setTrades]  = useState<Trade[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"signals" | "backtest">("signals");
+  const [btTicker, setBtTicker] = useState("");
+  const [btMarket, setBtMarket] = useState("KR");
+  const [btResult, setBtResult] = useState<BacktestResult | null>(null);
+  const [btLoading, setBtLoading] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -72,6 +95,17 @@ function AutoTradeContent() {
       setLoading(false);
     });
   }, []);
+
+  async function runBacktest() {
+    if (!btTicker.trim()) return;
+    setBtLoading(true);
+    setBtResult(null);
+    try {
+      const res = await fetch(`${API}/autotrade/backtest/${btTicker.trim().toUpperCase()}?market=${btMarket}&days=180`);
+      setBtResult(await res.json());
+    } catch { setBtResult({ ticker: btTicker, market: btMarket, total_return: 0, sharpe: null, mdd: 0, win_rate: 0, trade_count: 0, avg_hold_days: 0, ready_for_live: false, verdict: "오류", error: "요청 실패" }); }
+    finally { setBtLoading(false); }
+  }
 
   const systemOn = status?.system_on ?? false;
   const pnl = status?.total_pnl_pct ?? 0;
@@ -205,8 +239,90 @@ function AutoTradeContent() {
           </span>
         </div>
 
+        {/* 탭 */}
+        <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
+          {(["signals", "backtest"] as const).map(t => (
+            <button key={t} onClick={() => setActiveTab(t)} style={{
+              padding: "8px 18px", fontSize: 13, fontWeight: activeTab === t ? 700 : 400,
+              background: "transparent", border: "none", cursor: "pointer",
+              color: activeTab === t ? "var(--accent)" : "var(--text-muted)",
+              borderBottom: activeTab === t ? "2px solid var(--accent)" : "2px solid transparent",
+              marginBottom: -1,
+            }}>
+              {t === "signals" ? "유니버스 스캔" : "백테스트"}
+            </button>
+          ))}
+        </div>
+
+        {/* 백테스트 패널 */}
+        {activeTab === "backtest" && (
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
+            <p style={{ color: "var(--text-muted)", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", margin: "0 0 16px" }}>
+              6개월 백테스트 — 샤프지수 ≥ 1.0 · MDD ≥ -15% 충족 시 실전 적용
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+              <input
+                value={btTicker}
+                onChange={e => setBtTicker(e.target.value)}
+                placeholder="티커 (예: 005930, AAPL)"
+                style={{ flex: 1, minWidth: 160, background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "var(--text-primary)", outline: "none" }}
+              />
+              <select value={btMarket} onChange={e => setBtMarket(e.target.value)}
+                style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "var(--text-primary)", cursor: "pointer" }}>
+                <option value="KR">🇰🇷 KR</option>
+                <option value="US">🇺🇸 US</option>
+              </select>
+              <button onClick={runBacktest} disabled={btLoading || !btTicker.trim()} style={{
+                padding: "9px 20px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700,
+                background: btLoading || !btTicker.trim() ? "var(--card-hover)" : "var(--accent)",
+                color: btLoading || !btTicker.trim() ? "var(--text-muted)" : "#fff", cursor: btLoading ? "not-allowed" : "pointer",
+              }}>
+                {btLoading ? "분석 중..." : "백테스트 실행"}
+              </button>
+            </div>
+
+            {btResult && !btResult.error && (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: "총수익률", value: `${btResult.total_return > 0 ? "+" : ""}${btResult.total_return}%`, color: btResult.total_return >= 0 ? "var(--green)" : "var(--red)" },
+                    { label: "샤프지수", value: btResult.sharpe?.toFixed(2) ?? "-", color: (btResult.sharpe ?? 0) >= 1.0 ? "var(--green)" : "var(--gold)" },
+                    { label: "최대낙폭", value: `${btResult.mdd}%`, color: btResult.mdd >= -15 ? "var(--green)" : "var(--red)" },
+                    { label: "승률", value: `${btResult.win_rate}%`, color: btResult.win_rate >= 50 ? "var(--green)" : "var(--text-secondary)" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: "var(--bg-2)", borderRadius: 10, padding: "14px 16px", border: "1px solid var(--border)" }}>
+                      <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "0 0 6px" }}>{label}</p>
+                      <p style={{ color, fontSize: 20, fontWeight: 800, margin: 0 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                  {[
+                    { label: "총 거래", value: `${btResult.trade_count}건` },
+                    { label: "평균 보유", value: `${btResult.avg_hold_days}일` },
+                  ].map(({ label, value }) => (
+                    <span key={label} style={{ fontSize: 12, color: "var(--text-secondary)" }}>{label}: <strong style={{ color: "var(--text-primary)" }}>{value}</strong></span>
+                  ))}
+                </div>
+                <div style={{
+                  padding: "10px 16px", borderRadius: 8,
+                  background: btResult.ready_for_live ? "var(--green-dim)" : "rgba(234,179,8,0.1)",
+                  border: `1px solid ${btResult.ready_for_live ? "rgba(16,185,129,0.3)" : "rgba(234,179,8,0.3)"}`,
+                  color: btResult.ready_for_live ? "var(--green)" : "var(--gold)",
+                  fontSize: 13, fontWeight: 700,
+                }}>
+                  {btResult.verdict}
+                </div>
+              </div>
+            )}
+            {btResult?.error && (
+              <p style={{ color: "var(--red)", fontSize: 13 }}>{btResult.error}</p>
+            )}
+          </div>
+        )}
+
         {/* 유니버스 시그널 테이블 */}
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+        {activeTab === "signals" && <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{
             padding: "14px 20px", borderBottom: "1px solid var(--border)",
             display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -303,10 +419,32 @@ function AutoTradeContent() {
                       </td>
                       <td style={{ padding: "13px 20px" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                             <SignalBadge signal={s.signal} size="sm" />
+                            {/* RSI/MACD/MTF 미니 뱃지 */}
+                            {s.rsi != null && (
+                              <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, fontWeight: 700,
+                                background: s.rsi >= 40 && s.rsi <= 60 ? "var(--green-dim)" : "var(--red-dim)",
+                                color: s.rsi >= 40 && s.rsi <= 60 ? "var(--green)" : "var(--red)" }}>
+                                RSI {s.rsi}
+                              </span>
+                            )}
+                            {s.macd_ok != null && (
+                              <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, fontWeight: 700,
+                                background: s.macd_ok ? "var(--green-dim)" : "var(--red-dim)",
+                                color: s.macd_ok ? "var(--green)" : "var(--red)" }}>
+                                MACD {s.macd_ok ? "↑" : "↓"}
+                              </span>
+                            )}
+                            {s.mtf_ok != null && (
+                              <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, fontWeight: 700,
+                                background: s.mtf_ok ? "var(--green-dim)" : "var(--red-dim)",
+                                color: s.mtf_ok ? "var(--green)" : "var(--red)" }}>
+                                MTF {s.mtf_ok ? "✓" : "✗"}
+                              </span>
+                            )}
                             {s.reason && (
-                              <span style={{ color: "var(--text-muted)", fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <span style={{ color: "var(--text-muted)", fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {s.reason}
                               </span>
                             )}
@@ -324,7 +462,7 @@ function AutoTradeContent() {
               </tbody>
             </table>
           </div>
-        </div>
+        </div>}
 
         {/* 보유 종목 */}
         {(status?.holdings?.length ?? 0) > 0 && (

@@ -29,6 +29,7 @@ from backend.services.kis_trader import (
     get_price_and_fundamentals,
     get_daily_data,
     get_us_price_and_fundamentals,
+    get_vkospi,
     get_account_cash,
     get_holdings,
     buy_market_order,
@@ -50,6 +51,9 @@ VOLUME_MULT          = 1.5            # 거래량 배수
 RSI_MIN, RSI_MAX     = 40, 60         # RSI 진입 범위
 PER_MIN, PER_MAX     = 5.0, 30.0      # PER 범위
 MA_SHORT, MA_LONG    = 5, 20
+MA_TREND             = 60             # 장기 추세 확인용 MA (MTF 대체)
+VKOSPI_HALVE         = 25.0           # VKOSPI 이상 시 포지션 절반
+USE_FINANCIAL_FILTER = True           # 5단계 재무 필터 사용 여부
 
 # ── 섹터 맵 ───────────────────────────────────────────
 SECTOR_MAP: dict[str, str] = {
@@ -163,6 +167,18 @@ def _volume_ok(volumes: list[float]) -> bool | None:
     return avg5 > 0 and volumes[0] >= avg5 * VOLUME_MULT
 
 
+def _mtf_ok(closes: list[float]) -> bool | None:
+    """멀티 타임프레임 확인 (일봉 기반)
+    MA5 > MA20 > MA60 — 3개 정배열이면 추세 강함
+    일봉 MTF: MA60이 장기 추세(H1 역할), MA20이 중기(M15 역할)
+    """
+    ma20 = _ma(closes, MA_LONG)
+    ma60 = _ma(closes, MA_TREND)
+    if ma20 is None or ma60 is None:
+        return None  # 데이터 부족 → 필터 패스
+    return ma20 > ma60  # 중기 추세가 장기 추세 위에 있어야 함
+
+
 # ── 시장 환경 ─────────────────────────────────────────
 
 def _kospi_change_pct() -> float | None:
@@ -179,6 +195,15 @@ def _kospi_change_pct() -> float | None:
 def _market_halted() -> bool:
     chg = _kospi_change_pct()
     return chg is not None and chg <= KOSPI_HALT_PCT
+
+
+def _vkospi_position_multiplier() -> float:
+    """VKOSPI 25 이상이면 0.5 (포지션 절반), 그 외 1.0"""
+    v = get_vkospi()
+    if v is not None and v >= VKOSPI_HALVE:
+        print(f"[quant] VKOSPI={v:.1f} — 포지션 50% 축소")
+        return 0.5
+    return 1.0
 
 
 # ── 뉴스 감성 ─────────────────────────────────────────
@@ -242,14 +267,14 @@ def _calc_signal(ticker: str, market: str = "KR") -> dict:
         if market == "US":
             import yfinance as yf
             info = get_us_price_and_fundamentals(ticker)
-            hist = yf.Ticker(ticker).history(period="60d")
+            hist = yf.Ticker(ticker).history(period="90d")
             if hist.empty:
                 return {"signal": "hold", "reason": "데이터 없음", "current_price": None}
             closes  = list(reversed(hist["Close"].dropna().tolist()))
             volumes = list(reversed(hist["Volume"].dropna().tolist()))
         else:
             info  = get_price_and_fundamentals(ticker)
-            daily = get_daily_data(ticker, days=MA_LONG + 20)
+            daily = get_daily_data(ticker, days=MA_TREND + 20)
             closes  = [d["close"]  for d in daily]
             volumes = [d["volume"] for d in daily]
     except Exception as e:
@@ -275,23 +300,32 @@ def _calc_signal(ticker: str, market: str = "KR") -> dict:
     rsi     = _rsi(closes)
     macd_ok = _macd_bullish(closes)
     vol_ok  = _volume_ok(volumes)
+    mtf_ok  = _mtf_ok(closes)         # MA20 > MA60 (추세 방향 확인)
     per_ok  = per is None or (PER_MIN <= per <= PER_MAX)
 
     rsi_ok = rsi is None or (RSI_MIN <= rsi <= RSI_MAX)
 
-    if golden_cross and rsi_ok and (macd_ok is None or macd_ok) and (vol_ok is None or vol_ok) and per_ok:
+    all_filters_ok = (
+        rsi_ok and
+        (macd_ok is None or macd_ok) and
+        (vol_ok  is None or vol_ok)  and
+        (mtf_ok  is None or mtf_ok)  and
+        per_ok
+    )
+
+    if golden_cross and all_filters_ok:
         signal = "buy"
-        reason = f"골든크로스 RSI={rsi} 거래량OK PER={per}"
+        reason = f"골든크로스 RSI={rsi} 거래량OK MTF={'OK' if mtf_ok else '?'} PER={per}"
     elif dead_cross:
         signal = "sell"
         reason = f"데드크로스 (MA{MA_SHORT}<MA{MA_LONG})"
     elif golden_cross:
-        # 크로스는 발생했지만 보조 필터 미통과
         fails = []
-        if not rsi_ok:             fails.append(f"RSI={rsi}(범위외)")
-        if macd_ok is False:       fails.append("MACD하락")
-        if vol_ok is False:        fails.append("거래량부족")
-        if not per_ok:             fails.append(f"PER={per}(범위외)")
+        if not rsi_ok:         fails.append(f"RSI={rsi}(범위외)")
+        if macd_ok is False:   fails.append("MACD하락")
+        if vol_ok  is False:   fails.append("거래량부족")
+        if mtf_ok  is False:   fails.append("MTF하락추세")
+        if not per_ok:         fails.append(f"PER={per}(범위외)")
         signal = "hold"
         reason = f"크로스+필터미통과: {', '.join(fails)}"
     else:
@@ -299,18 +333,19 @@ def _calc_signal(ticker: str, market: str = "KR") -> dict:
         reason = f"MA{MA_SHORT}={ma5_now:.2f} MA{MA_LONG}={ma20_now:.2f}"
 
     return {
-        "signal":       signal,
-        "reason":       reason,
+        "signal":        signal,
+        "reason":        reason,
         "current_price": cp,
-        "ma5":          round(ma5_now, 2),
-        "ma20":         round(ma20_now, 2),
-        "rsi":          rsi,
-        "macd_ok":      macd_ok,
-        "vol_ok":       vol_ok,
-        "per":          per,
-        "pbr":          info.get("pbr"),
-        "w52_high":     info.get("w52_high"),
-        "w52_low":      info.get("w52_low"),
+        "ma5":           round(ma5_now, 2),
+        "ma20":          round(ma20_now, 2),
+        "rsi":           rsi,
+        "macd_ok":       macd_ok,
+        "vol_ok":        vol_ok,
+        "mtf_ok":        mtf_ok,
+        "per":           per,
+        "pbr":           info.get("pbr"),
+        "w52_high":      info.get("w52_high"),
+        "w52_low":       info.get("w52_low"),
     }
 
 
@@ -484,11 +519,25 @@ def scan_and_trade():
                 if sig["signal"] != "buy" or not sig.get("current_price"):
                     continue
 
+                # 5단계 재무 필터
+                if USE_FINANCIAL_FILTER:
+                    try:
+                        from backend.services.financial_filter import passes_5stage_filter
+                        ok, reason_f, _ = passes_5stage_filter(ticker, market)
+                        if not ok:
+                            print(f"[quant] {ticker} 재무 필터 탈락: {reason_f}")
+                            continue
+                    except Exception:
+                        pass  # 필터 오류 시 통과
+
                 if _news_blocks_trade(ticker, stock.get("name", ticker)):
                     print(f"[quant] {ticker} 부정 뉴스 — 진입 차단")
                     continue
 
-                qty = calculate_quantity(MAX_AMOUNT_PER_STOCK, sig["current_price"])
+                # VKOSPI 포지션 축소
+                pos_mult = _vkospi_position_multiplier()
+                amount   = int(MAX_AMOUNT_PER_STOCK * pos_mult)
+                qty = calculate_quantity(amount, sig["current_price"])
                 if qty <= 0:
                     continue
 

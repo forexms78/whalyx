@@ -578,3 +578,52 @@ async def add_to_watchlist(body: dict):
 async def remove_from_watchlist(ticker: str):
     _sb().table("autotrade_watchlist").delete().eq("ticker", ticker).execute()
     return {"ok": True}
+
+
+# ── 백테스트 ────────────────────────────────────────────────────────────────────
+@app.get("/autotrade/backtest/{ticker}")
+async def backtest_ticker(ticker: str, market: str = "KR", days: int = 180):
+    """단일 종목 백테스트 (최대 200일)"""
+    from backend.services.backtest import run_backtest
+    days = min(days, 200)
+    try:
+        result = await _run(run_backtest, ticker.upper(), market.upper(), days)
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/autotrade/backtest/portfolio")
+async def backtest_portfolio(body: dict):
+    """유니버스 전체 포트폴리오 백테스트"""
+    from backend.services.backtest import run_portfolio_backtest
+    days    = min(body.get("days", 180), 200)
+    tickers = body.get("tickers")
+    if not tickers:
+        # 전체 유니버스 사용
+        rows    = _sb().table("autotrade_watchlist").select("ticker, market").execute().data or []
+        tickers = rows
+    try:
+        result = await _run(run_portfolio_backtest, tickers, days)
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/autotrade/financial-filter/{ticker}")
+async def financial_filter_check(ticker: str, market: str = "KR"):
+    """5단계 재무 필터 결과 확인"""
+    from backend.services.financial_filter import passes_5stage_filter
+    try:
+        ok, reason, fd = await _run(passes_5stage_filter, ticker.upper(), market.upper())
+        return {"ticker": ticker, "pass": ok, "reason": reason, "fundamentals": fd}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/autotrade/vkospi")
+async def get_vkospi_endpoint():
+    """VKOSPI 현재 수치"""
+    from backend.services.kis_trader import get_vkospi
+    v = await _run(get_vkospi)
+    return {"vkospi": v, "halve_threshold": 25.0, "position_mult": 0.5 if (v or 0) >= 25.0 else 1.0}

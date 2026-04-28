@@ -152,6 +152,38 @@ def get_daily_prices(ticker: str, days: int = 30) -> list[float]:
     return [float(r["stck_clpr"]) for r in output if r.get("stck_clpr")][:days]
 
 
+def get_vkospi() -> float | None:
+    """VKOSPI (한국판 VIX) — KIS 지수 시세로 조회"""
+    try:
+        res = requests.get(
+            f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price",
+            headers=_headers("FHPUP02100000"),
+            params={"fid_cond_mrkt_div_code": "U", "fid_input_iscd": "500"},
+            timeout=10,
+        )
+        out = res.json().get("output", {})
+        v = out.get("bstp_nmix_prpr")
+        return float(v) if v else None
+    except Exception:
+        # KIS VKOSPI 실패 시 ATR 기반 대체 계산
+        try:
+            import yfinance as yf
+            hist = yf.Ticker("^KS11").history(period="25d")
+            if len(hist) < 14:
+                return None
+            # ATR 기반 변동성 (14일)
+            highs  = hist["High"].tolist()[-14:]
+            lows   = hist["Low"].tolist()[-14:]
+            closes = hist["Close"].tolist()[-15:]
+            trs    = [max(highs[i] - lows[i], abs(highs[i] - closes[i]), abs(lows[i] - closes[i])) for i in range(14)]
+            atr    = sum(trs) / 14
+            # ATR을 가격 대비 % → VIX 스케일로 근사
+            vkospi_approx = (atr / closes[-1]) * 100 * 15
+            return round(vkospi_approx, 2)
+        except Exception:
+            return None
+
+
 def get_us_price_and_fundamentals(ticker: str) -> dict:
     """yfinance로 미국 주식 현재가 + PER/PBR/52주 고저"""
     import yfinance as yf
