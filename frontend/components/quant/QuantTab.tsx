@@ -35,6 +35,13 @@ interface Trade {
   executed_at: string;
 }
 
+interface Status {
+  system_on: boolean;
+  trades_today: number;
+  total_invested: number;
+  total_pnl_pct: number;
+}
+
 function PasswordForm({ onUnlock }: { onUnlock: () => void }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
@@ -51,22 +58,15 @@ function PasswordForm({ onUnlock }: { onUnlock: () => void }) {
   }
 
   return (
-    <div style={{
-      display: "flex", justifyContent: "center", alignItems: "center",
-      padding: "80px 24px",
-    }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "80px 24px" }}>
       <div style={{
         background: "var(--card)", border: "1px solid var(--border)",
         borderRadius: 16, padding: "40px 32px", width: "100%", maxWidth: 360,
         display: "flex", flexDirection: "column", gap: 20,
       }}>
         <div style={{ textAlign: "center" }}>
-          <p style={{ color: "var(--accent)", fontWeight: 700, fontSize: 18, margin: 0 }}>
-            Whalyx Quant
-          </p>
-          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "6px 0 0" }}>
-            비밀번호를 입력하세요
-          </p>
+          <p style={{ color: "var(--accent)", fontWeight: 700, fontSize: 18, margin: 0 }}>Whalyx Quant</p>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "6px 0 0" }}>비밀번호를 입력하세요</p>
         </div>
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <input
@@ -81,19 +81,11 @@ function PasswordForm({ onUnlock }: { onUnlock: () => void }) {
               fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box",
             }}
           />
-          {error && (
-            <p style={{ color: "#ef4444", fontSize: 12, textAlign: "center", margin: 0 }}>
-              비밀번호가 틀렸습니다
-            </p>
-          )}
-          <button
-            type="submit"
-            style={{
-              background: "var(--accent)", color: "#fff",
-              border: "none", borderRadius: 8, padding: "11px",
-              fontSize: 14, fontWeight: 600, cursor: "pointer",
-            }}
-          >
+          {error && <p style={{ color: "#ef4444", fontSize: 12, textAlign: "center", margin: 0 }}>비밀번호가 틀렸습니다</p>}
+          <button type="submit" style={{
+            background: "var(--accent)", color: "#fff", border: "none",
+            borderRadius: 8, padding: "11px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+          }}>
             입장
           </button>
         </form>
@@ -106,6 +98,7 @@ function QuantDashboard() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -113,21 +106,70 @@ function QuantDashboard() {
       fetch(`${API}/quant/stocks`).then(r => r.json()).catch(() => []),
       fetch(`${API}/autotrade/signals`).then(r => r.json()).catch(() => []),
       fetch(`${API}/autotrade/trades`).then(r => r.json()).catch(() => []),
-    ]).then(([s, sig, t]) => {
+      fetch(`${API}/autotrade/status`).then(r => r.json()).catch(() => null),
+    ]).then(([s, sig, t, st]) => {
       setStocks(Array.isArray(s) ? s : []);
       setSignals(Array.isArray(sig) ? sig : []);
       setTrades(Array.isArray(t) ? t.slice(0, 5) : []);
+      setStatus(st);
       setLoading(false);
     });
   }, []);
 
   const buySignals = signals.filter(s => s.signal === "buy");
   const sellSignals = signals.filter(s => s.signal === "sell");
+  const systemOn = status?.system_on ?? false;
+  const pnlColor = (status?.total_pnl_pct ?? 0) >= 0 ? "#22c55e" : "#ef4444";
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 32 }}>
+    <div style={{ padding: "32px 24px", maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
 
-      {/* 퀀트 요약 카드 */}
+      {/* 상태 배너 — 시스템 온/오프 + 수익률 */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+        background: "var(--card)", border: `1px solid ${systemOn ? "rgba(34,197,94,0.3)" : "var(--border)"}`,
+        borderRadius: 12, padding: "14px 20px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: systemOn ? "#22c55e" : "#6b7280",
+            boxShadow: systemOn ? "0 0 6px #22c55e" : "none",
+            display: "inline-block",
+          }} />
+          <span style={{ color: systemOn ? "#22c55e" : "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>
+            자동매매 {systemOn ? "실행 중" : "오프라인"}
+          </span>
+        </div>
+        <span style={{ color: "var(--border)", fontSize: 16 }}>|</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          오늘 체결 <strong style={{ color: "var(--text-primary)" }}>{status?.trades_today ?? 0}건</strong>
+        </span>
+        <span style={{ color: "var(--border)", fontSize: 16 }}>|</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          투자 중{" "}
+          <strong style={{ color: "#60a5fa" }}>
+            {status?.total_invested ? `${Math.round(status.total_invested / 10000)}만원` : "-"}
+          </strong>
+        </span>
+        <span style={{ color: "var(--border)", fontSize: 16 }}>|</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          수익률{" "}
+          <strong style={{ color: pnlColor }}>
+            {status?.total_pnl_pct != null
+              ? `${status.total_pnl_pct > 0 ? "+" : ""}${status.total_pnl_pct}%`
+              : "-"}
+          </strong>
+        </span>
+        <Link href="/autotrade" style={{
+          marginLeft: "auto", color: "var(--accent)", fontSize: 12,
+          textDecoration: "none", flexShrink: 0,
+        }}>
+          자동매매 전체 →
+        </Link>
+      </div>
+
+      {/* 요약 카드 3개 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {[
           { label: "리서치 종목", value: loading ? "..." : `${stocks.length}개`, sub: "저널 추적 중", color: "#60a5fa" },
@@ -147,7 +189,7 @@ function QuantDashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
-        {/* 자동매매 시그널 */}
+        {/* 자동매매 유니버스 시그널 */}
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{
             padding: "16px 20px", borderBottom: "1px solid var(--border)",
@@ -167,8 +209,7 @@ function QuantDashboard() {
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   {["종목", "현재가", "MA5", "MA20", "시그널"].map(h => (
                     <th key={h} style={{
-                      padding: "10px 16px", color: "var(--text-muted)",
-                      fontSize: 11, fontWeight: 500,
+                      padding: "10px 16px", color: "var(--text-muted)", fontSize: 11, fontWeight: 500,
                       textAlign: h === "종목" ? "left" : "center",
                     }}>{h}</th>
                   ))}
@@ -198,23 +239,26 @@ function QuantDashboard() {
                   </tr>
                 ))}
                 {!loading && signals.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>시그널 없음 (KIS API 연결 확인)</td></tr>
+                  <tr><td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>시그널 없음</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* 리서치 저널 + 최근 체결 */}
+        {/* 오른쪽 컬럼 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-          {/* 리서치 저널 */}
+          {/* 리서치 저널 — 종목별 기록 접근 */}
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
             <div style={{
               padding: "16px 20px", borderBottom: "1px solid var(--border)",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <p style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 600, margin: 0 }}>리서치 저널</p>
+              <div>
+                <p style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 600, margin: 0 }}>리서치 저널</p>
+                <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "2px 0 0" }}>종목 클릭 → AI 분석 텍스트 붙여넣기</p>
+              </div>
               <Link href="/quant" style={{ color: "var(--accent)", fontSize: 12, textDecoration: "none" }}>
                 전체 보기 →
               </Link>
@@ -223,30 +267,31 @@ function QuantDashboard() {
               {loading ? (
                 <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13, margin: 0 }}>불러오는 중...</p>
               ) : stocks.length === 0 ? (
-                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
-                  추적 중인 종목 없음
-                </p>
+                <div style={{ padding: "20px", textAlign: "center" }}>
+                  <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>추적 중인 종목 없음</p>
+                  <Link href="/quant" style={{
+                    color: "var(--accent)", fontSize: 12, textDecoration: "none",
+                    border: "1px solid var(--accent-glow)", borderRadius: 6, padding: "6px 14px",
+                  }}>
+                    종목 추가하기 →
+                  </Link>
+                </div>
               ) : stocks.slice(0, 5).map(s => (
                 <Link key={s.ticker} href={`/quant/stocks/${s.ticker}`} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "10px 20px", textDecoration: "none",
-                  borderBottom: "1px solid var(--border)",
+                  padding: "10px 20px", textDecoration: "none", borderBottom: "1px solid var(--border)",
                 }}>
                   <div>
                     <p style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 600, margin: 0 }}>{s.name}</p>
                     <p style={{ color: "var(--text-muted)", fontSize: 11, margin: "2px 0 0" }}>{s.ticker} · {s.market}</p>
                   </div>
-                  {s.current_price && (
-                    <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: 0 }}>
-                      ${s.current_price.toLocaleString()}
-                    </p>
-                  )}
+                  <span style={{ color: "var(--text-muted)", fontSize: 11 }}>분석 기록 →</span>
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* 최근 체결 */}
+          {/* 최근 체결 이력 */}
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
               <p style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 600, margin: 0 }}>최근 체결</p>
@@ -255,9 +300,7 @@ function QuantDashboard() {
               {loading ? (
                 <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13, margin: 0 }}>불러오는 중...</p>
               ) : trades.length === 0 ? (
-                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
-                  체결 내역 없음
-                </p>
+                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: 13, margin: 0 }}>체결 내역 없음</p>
               ) : trades.map(t => (
                 <div key={t.id} style={{
                   padding: "10px 20px", borderBottom: "1px solid var(--border)",
@@ -266,8 +309,7 @@ function QuantDashboard() {
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{
                       fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 700,
-                      background: t.action === "buy" ? "#22c55e" : "#ef4444",
-                      color: "#fff",
+                      background: t.action === "buy" ? "#22c55e" : "#ef4444", color: "#fff",
                     }}>
                       {t.action === "buy" ? "매수" : "매도"}
                     </span>
@@ -285,6 +327,7 @@ function QuantDashboard() {
               ))}
             </div>
           </div>
+
         </div>
       </div>
     </div>
