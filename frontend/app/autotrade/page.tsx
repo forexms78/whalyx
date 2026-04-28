@@ -35,10 +35,15 @@ interface Trade {
 interface Signal {
   ticker: string;
   name: string;
-  forward_pe?: number;
-  avg_fair_value?: number;
-  current_price?: number;
   signal: string;
+  current_price?: number;
+  ma5?: number;
+  ma20?: number;
+  per?: number;
+  pbr?: number;
+  w52_high?: number;
+  w52_low?: number;
+  reason?: string;
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -131,16 +136,18 @@ function AutoTradeContent() {
         </div>
 
         <div className="bg-gray-900 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-800 text-sm text-gray-400">
-            시그널 감지 종목 (KR)
+          <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+            <span className="text-sm text-gray-400">유니버스 스캔 (KOSPI 대형주 20종목)</span>
+            <span className="text-xs text-gray-600">MA{5}/MA{20} 골든크로스 · PER 필터</span>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-gray-600 text-xs border-b border-gray-800">
                 <th className="text-left px-4 py-2">종목</th>
-                <th className="px-4 py-2">Forward P/E</th>
-                <th className="px-4 py-2">적정가</th>
                 <th className="px-4 py-2">현재가</th>
+                <th className="px-4 py-2">MA5</th>
+                <th className="px-4 py-2">MA20</th>
+                <th className="px-4 py-2">PER</th>
                 <th className="px-4 py-2">시그널</th>
               </tr>
             </thead>
@@ -151,24 +158,30 @@ function AutoTradeContent() {
                     <p className="text-white font-medium">{s.name || s.ticker}</p>
                     <p className="text-gray-500 text-xs">{s.ticker}</p>
                   </td>
-                  <td className="px-4 py-3 text-center text-yellow-400">
-                    {s.forward_pe?.toFixed(1) ?? "N/A"}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-300">
-                    {s.avg_fair_value ? `${s.avg_fair_value.toLocaleString()}원` : "N/A"}
-                  </td>
                   <td className="px-4 py-3 text-center text-white">
-                    {s.current_price ? `${s.current_price.toLocaleString()}원` : "N/A"}
+                    {s.current_price ? `${s.current_price.toLocaleString()}원` : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-center text-blue-400">
+                    {s.ma5 ? s.ma5.toLocaleString() : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-center text-purple-400">
+                    {s.ma20 ? s.ma20.toLocaleString() : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-center text-yellow-400">
+                    {s.per?.toFixed(1) ?? "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <SignalBadge signal={s.signal} size="sm" />
+                    <div className="flex flex-col items-center gap-1">
+                      <SignalBadge signal={s.signal} size="sm" />
+                      {s.reason && <span className="text-gray-600 text-xs max-w-[120px] truncate">{s.reason}</span>}
+                    </div>
                   </td>
                 </tr>
               ))}
               {signals.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-600">
-                    추적 중인 KR 종목이 없습니다. 리서치 저널에서 KR 종목을 추가하세요.
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-600">
+                    유니버스 시그널을 불러오는 중... (KIS API 연결 확인)
                   </td>
                 </tr>
               )}

@@ -529,16 +529,26 @@ async def autotrade_trades():
 
 @app.get("/autotrade/signals")
 async def autotrade_signals():
-    stocks = _sb().table("quant_stocks").select("*").eq("market", "KR").execute().data or []
-    result = []
-    for s in stocks:
-        metrics = calculate_metrics(
-            current_price=s.get("current_price") or 0,
-            forward_eps=s.get("forward_eps") or 0,
-            bps=s.get("bps"),
-            eps_growth_rate=s.get("eps_growth_rate"),
-            target_pe=s.get("target_pe") or 30,
-        )
-        signal = calculate_signal(metrics, s.get("current_price") or 0)
-        result.append({**s, **metrics, "signal": signal})
-    return result
+    from backend.services.quant_scheduler import get_universe_signals
+    return await _run(get_universe_signals)
+
+@app.get("/autotrade/watchlist")
+async def autotrade_watchlist():
+    from backend.services.quant_scheduler import _ensure_universe
+    await _run(_ensure_universe)
+    result = _sb().table("autotrade_watchlist").select("*").order("ticker").execute()
+    return result.data or []
+
+@app.post("/autotrade/watchlist")
+async def add_to_watchlist(body: dict):
+    ticker = body.get("ticker", "").strip()
+    name = body.get("name", ticker)
+    if not ticker:
+        return {"error": "ticker 필수"}
+    result = _sb().table("autotrade_watchlist").upsert({"ticker": ticker, "name": name}, on_conflict="ticker").execute()
+    return result.data[0] if result.data else {}
+
+@app.delete("/autotrade/watchlist/{ticker}")
+async def remove_from_watchlist(ticker: str):
+    _sb().table("autotrade_watchlist").delete().eq("ticker", ticker).execute()
+    return {"ok": True}

@@ -1,6 +1,7 @@
 import os
-import requests
 from datetime import datetime, timedelta
+
+import requests
 
 APP_KEY = os.getenv("KIS_APP_KEY", "")
 APP_SECRET = os.getenv("KIS_APP_SECRET", "")
@@ -19,7 +20,6 @@ def get_access_token() -> str:
     now = datetime.now()
     if _token_cache["token"] and _token_cache["expires_at"] and now < _token_cache["expires_at"]:
         return _token_cache["token"]
-
     res = requests.post(
         f"{BASE_URL}/oauth2/tokenP",
         json={"grant_type": "client_credentials", "appkey": APP_KEY, "appsecret": APP_SECRET},
@@ -51,6 +51,55 @@ def get_current_price(ticker: str) -> float:
     )
     res.raise_for_status()
     return float(res.json()["output"]["stck_prpr"])
+
+
+def get_price_and_fundamentals(ticker: str) -> dict:
+    """현재가 + PER/PBR/시가총액 — KIS 주식현재가 시세"""
+    res = requests.get(
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price",
+        headers=_headers("FHKST01010100"),
+        params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": ticker},
+        timeout=10,
+    )
+    res.raise_for_status()
+    out = res.json().get("output", {})
+    return {
+        "current_price": float(out.get("stck_prpr", 0)),
+        "per": _safe_float(out.get("per")),
+        "pbr": _safe_float(out.get("pbr")),
+        "w52_high": _safe_float(out.get("w52_hgpr")),
+        "w52_low": _safe_float(out.get("w52_lwpr")),
+    }
+
+
+def get_daily_prices(ticker: str, days: int = 30) -> list[float]:
+    """일별 종가 리스트 (최신순) — KIS 주식 기간별 시세"""
+    end = datetime.now().strftime("%Y%m%d")
+    start = (datetime.now() - timedelta(days=days + 10)).strftime("%Y%m%d")
+    res = requests.get(
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-price",
+        headers=_headers("FHKST01010400"),
+        params={
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": ticker,
+            "fid_org_adj_prc": "1",
+            "fid_period_div_code": "D",
+            "fid_input_date_1": start,
+            "fid_input_date_2": end,
+        },
+        timeout=10,
+    )
+    res.raise_for_status()
+    output = res.json().get("output", [])
+    return [float(r["stck_clpr"]) for r in output if r.get("stck_clpr")][:days]
+
+
+def _safe_float(v) -> float | None:
+    try:
+        f = float(v)
+        return f if f > 0 else None
+    except (TypeError, ValueError):
+        return None
 
 
 def calculate_quantity(max_amount: int, price: float) -> int:
