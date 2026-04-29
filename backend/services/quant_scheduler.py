@@ -22,6 +22,18 @@
   잔고:          주문 전 잔고 재확인, 부족 시 중단
 """
 import json
+import os
+
+SENTIMENT_SYSTEM = """당신은 퀀트 트레이딩 리스크 필터입니다. 주어진 데이터를 보고 해당 종목 매수를 차단할지 판단합니다.
+
+block_trading=true 기준 (아래 중 하나라도 해당 시):
+- 대규모 실적 쇼크 또는 영업손실 전환 공시
+- 경영진 횡령·배임·검찰 수사 개시
+- 핵심 사업 중단 또는 주요 계약 해지
+- 회계감사 의견 거절·한정·강조사항(계속기업 의문)
+
+데이터 신뢰도 가중치: DART 공시(50%) > 재무지표(20%) > 뉴스헤드라인(30%)
+판단 불가 시 block_trading=false 응답. JSON만 반환."""
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -223,27 +235,48 @@ def _news_blocks_trade(ticker: str, name: str) -> tuple[bool, dict]:
     cached = redis_cache.get(cache_key)
     if cached is not None:
         return bool(cached.get("block_trading", False)), cached
+
+    empty = {"block_trading": False, "sentiment": 0.0, "category": "없음", "block_reason": ""}
     try:
         from backend.services.news import fetch_stock_news
         from backend.utils.gemini import call_gemini
         news = fetch_stock_news(ticker)[:5]
-        empty = {"block_trading": False, "sentiment": 0.0, "category": "없음"}
         if not news:
             redis_cache.set(cache_key, empty, ttl=14400)
             return False, empty
-        headlines = "\n".join(n.get("title", "") for n in news if n.get("title"))
+
+        headlines = "\n".join(f"- {n.get('title', '')}" for n in news if n.get("title"))
+
+        # DART 최근 공시 요약 컨텍스트
+        dart_summary = ""
+        try:
+            from backend.services.dart_service import get_corp_code, check_emergency_block
+            corp_code = get_corp_code(ticker)
+            if corp_code:
+                _, disc_title = check_emergency_block(corp_code)
+                if disc_title:
+                    dart_summary = f"\n\n[최근 DART 공시]\n- {disc_title}"
+        except Exception:
+            pass
+
         prompt = (
-            f"{name}({ticker}) 뉴스 분석. JSON만 응답:\n{headlines}\n\n"
-            '{"sentiment":0.0,"block_trading":false,"category":"일반"}\n'
-            "block_trading: 악재/부정 뉴스면 true"
+            f"종목: {name}({ticker})\n\n"
+            f"[뉴스 헤드라인]\n{headlines}"
+            f"{dart_summary}\n\n"
+            "아래 JSON 형식으로만 응답:\n"
+            '{"sentiment": 0.0, "block_trading": false, "category": "일반", "block_reason": ""}\n'
+            "block_reason: block_trading=true인 경우 한 문장으로 이유 기술, false면 빈 문자열"
         )
-        resp  = call_gemini(prompt)
+        resp  = call_gemini(prompt, system=SENTIMENT_SYSTEM)
         clean = resp.strip().strip("```json").strip("```").strip()
         result = json.loads(clean)
+        if "block_reason" not in result:
+            result["block_reason"] = ""
         redis_cache.set(cache_key, result, ttl=14400)
         return bool(result.get("block_trading", False)), result
     except Exception:
-        return False, {}
+        redis_cache.set(cache_key, empty, ttl=14400)
+        return False, empty
 
 
 # ── 포지션 관리 ───────────────────────────────────────
@@ -589,6 +622,7 @@ def _buy_stocks(target_market: str, held: set[str], pos_mult: float):
                     "financial_data":         fin_details,
                     "news_sentiment":         news_info.get("sentiment"),
                     "news_category":          news_info.get("category"),
+                    "news_block_reason":      news_info.get("block_reason", ""),
                     "amount_invested":        qty * sig["current_price"],
                 }
                 _record_trade(ticker, "buy", sig["current_price"], qty, sig["reason"], order_id, details, market)
