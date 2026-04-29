@@ -529,6 +529,19 @@ def _buy_stocks(target_market: str, held: set[str], pos_mult: float):
                     except Exception:
                         pass
 
+                # DART 긴급차단 (Gemini 호출 전 코드 레벨 차단)
+                if market == "KR":
+                    try:
+                        from backend.services.dart_service import get_corp_code, check_emergency_block
+                        corp_code = get_corp_code(ticker)
+                        if corp_code:
+                            dart_blocked, disc_title = check_emergency_block(corp_code)
+                            if dart_blocked:
+                                print(f"[quant] {ticker} DART 긴급차단: {disc_title}")
+                                continue
+                    except Exception as _e:
+                        print(f"[quant] {ticker} DART 차단 체크 오류: {_e}")
+
                 news_blocked, news_info = _news_blocks_trade(ticker, stock.get("name", ticker))
                 if news_blocked:
                     print(f"[quant] {ticker} 부정 뉴스 — 진입 차단")
