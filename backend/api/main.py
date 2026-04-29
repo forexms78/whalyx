@@ -578,8 +578,18 @@ async def autotrade_watchlist():
     return result.data or []
 
 def _resolve_stock_name(ticker: str, market: str) -> str:
-    try:
-        if market == "KR":
+    if market == "KR":
+        # 1순위: DART DB (corp_name — 이미 수집된 안정적 데이터)
+        try:
+            from backend.services.db_cache import _get_client as _sb2
+            row = _sb2().table("dart_corp_codes").select("corp_name").eq("ticker", ticker).maybe_single().execute()
+            if row and row.data and row.data.get("corp_name"):
+                return row.data["corp_name"]
+        except Exception as e:
+            print(f"[resolve_name] DART DB 조회 실패 {ticker}: {e}")
+
+        # 2순위: KIS 실시간 API
+        try:
             from backend.services.kis_trader import _headers, BASE_URL
             import requests as _req
             res = _req.get(
@@ -589,13 +599,21 @@ def _resolve_stock_name(ticker: str, market: str) -> str:
                 timeout=5,
             )
             name = res.json().get("output", {}).get("hts_kor_isnm", "").strip()
-            return name or ticker
-        else:
+            if name:
+                return name
+        except Exception as e:
+            print(f"[resolve_name] KIS API 실패 {ticker}: {e}")
+
+        return ticker
+
+    else:
+        try:
             import yfinance as yf
             info = yf.Ticker(ticker).info
             return info.get("shortName") or info.get("longName") or ticker
-    except Exception:
-        return ticker
+        except Exception as e:
+            print(f"[resolve_name] yfinance 실패 {ticker}: {e}")
+            return ticker
 
 
 @app.post("/autotrade/watchlist")
