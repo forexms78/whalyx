@@ -35,11 +35,11 @@ def _safe_float(v) -> float | None:
 
 
 def _get_kr_fundamentals(ticker: str) -> dict:
-    """KIS + yfinance로 한국 주식 재무 데이터 수집"""
+    """KIS(PER·PBR·시가총액·투자주의) + DART(ROE·부채비율·유동비율·성장성)"""
     from backend.services.kis_trader import BASE_URL
     result: dict = {}
 
-    # KIS 기본 가격 정보 (PER, PBR, 시가총액)
+    # KIS — 실시간 가격·밸류에이션
     try:
         res = requests.get(
             f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price",
@@ -50,27 +50,17 @@ def _get_kr_fundamentals(ticker: str) -> dict:
         out = res.json().get("output", {})
         result["per"]    = _safe_float(out.get("per"))
         result["pbr"]    = _safe_float(out.get("pbr"))
-        result["mktcap"] = _safe_float(out.get("hts_avls"))  # 시가총액 (억원)
-        result["warn"]   = out.get("invt_caful_isse_yn", "N")  # 투자주의 여부
+        result["mktcap"] = _safe_float(out.get("hts_avls"))
+        result["warn"]   = out.get("invt_caful_isse_yn", "N")
     except Exception:
         pass
 
-    # yfinance KS suffix로 추가 재무 데이터
+    # DART — 재무제표 원천 데이터 (yfinance.KS 대체)
     try:
-        import yfinance as yf
-        info = yf.Ticker(f"{ticker}.KS").info
-        result["roe"]            = info.get("returnOnEquity")
-        result["debt_to_equity"] = info.get("debtToEquity")
-        result["current_ratio"]  = info.get("currentRatio")
-        result["revenue_growth"] = info.get("revenueGrowth")
-        result["earnings_growth"]= info.get("earningsGrowth")
-        result["profit_margins"] = info.get("profitMargins")
-        if not result.get("per"):
-            result["per"] = info.get("trailingPE") or info.get("forwardPE")
-        if not result.get("mktcap"):
-            mc = info.get("marketCap")
-            if mc:
-                result["mktcap"] = mc / 1e8  # 원 → 억원
+        from backend.services.dart_service import get_corp_code, get_kr_financials
+        corp_code = get_corp_code(ticker)
+        if corp_code:
+            result.update(get_kr_financials(corp_code))
     except Exception:
         pass
 
