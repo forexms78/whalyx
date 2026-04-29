@@ -570,6 +570,32 @@ async def autotrade_status():
         **({"holdings_error": holdings_error} if holdings_error else {}),
     }
 
+@app.get("/autotrade/account")
+async def autotrade_account():
+    """계좌 잔고 상세 — 예수금·총평가·매입금액·평가손익·수익률"""
+    try:
+        from backend.services.kis_trader import get_account_summary
+        return await _run(get_account_summary)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/autotrade/prescan")
+async def trigger_prescan():
+    """수동 전종목 프리스캔 트리거 (즉시 실행)"""
+    from backend.services.market_scanner import prescan_golden_cross, build_kr_universe
+    from backend.services.db_cache import _get_client as _sb2
+    try:
+        count_res = _sb2().table("market_universe").select("ticker", count="exact").limit(1).execute()
+        count = count_res.count or 0
+        if count < 100:
+            await _run(build_kr_universe)
+        n = await _run(prescan_golden_cross)
+        return {"candidates": n, "message": f"프리스캔 완료: {n}종목 후보 추출"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/autotrade/trades")
 async def autotrade_trades():
     result = _sb().table("auto_trades")\

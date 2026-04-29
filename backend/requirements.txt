@@ -10,3 +10,4 @@ supabase==2.10.0
 feedparser==6.0.11
 apscheduler==3.10.4
 redis==5.0.8
+finance-datareader==0.9.93

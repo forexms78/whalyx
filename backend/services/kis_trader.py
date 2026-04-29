@@ -105,8 +105,8 @@ def get_daily_data(ticker: str, days: int = 40) -> list[dict]:
     return result[:days]
 
 
-def get_account_cash() -> float:
-    """주문 가능 예수금"""
+def _inquire_balance_raw() -> dict:
+    """inquire-balance output2 원본 반환 (내부 공통 호출)"""
     acc_no, acc_suffix = (ACCOUNT_NO.split("-") + [ACCOUNT_SUFFIX or "01"])[:2]
     tr_id = "VTTC8434R" if IS_MOCK else "TTTC8434R"
     res = requests.get(
@@ -128,11 +128,42 @@ def get_account_cash() -> float:
         timeout=10,
     )
     res.raise_for_status()
-    output2 = res.json().get("output2", [{}])
+    return res.json()
+
+
+def get_account_cash() -> float:
+    """주문 가능 예수금"""
+    output2 = _inquire_balance_raw().get("output2", [{}])
     if output2:
         v = output2[0].get("nxdy_excc_amt") or output2[0].get("dnca_tot_amt") or "0"
         return float(v)
     return 0.0
+
+
+def get_account_summary() -> dict:
+    """계좌 잔고 전체 요약 — 예수금·총평가금액·매입금액·평가손익·수익률"""
+    raw = _inquire_balance_raw()
+    out2 = raw.get("output2", [{}])
+    o = out2[0] if out2 else {}
+
+    def _f(key: str) -> float:
+        try:
+            return float(o.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    return {
+        "cash":          _f("nxdy_excc_amt") or _f("dnca_tot_amt"),   # 주문가능 예수금
+        "deposit_total": _f("dnca_tot_amt"),                           # 예수금 총액
+        "total_eval":    _f("tot_evlu_amt"),                           # 총 평가금액
+        "buy_total":     _f("pchs_amt_smtl_amt"),                      # 매입금액 합계
+        "eval_total":    _f("evlu_amt_smtl_amt"),                      # 평가금액 합계
+        "pnl_amount":    _f("evlu_pfls_smtl_amt"),                     # 평가손익 합계
+        "pnl_pct":       round(float(o.get("asst_icdc_erng_rt") or 0), 2),  # 수익률
+        "today_buy":     _f("thdt_buys_amt"),                          # 금일 매수금액
+        "today_sell":    _f("thdt_sll_amt"),                           # 금일 매도금액
+        "net_asset":     _f("nass_amt"),                               # 순자산
+    }
 
 
 def get_daily_prices(ticker: str, days: int = 30) -> list[float]:

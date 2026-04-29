@@ -5,6 +5,20 @@ import SignalBadge from "@/components/quant/SignalBadge";
 import PasswordGate from "@/components/quant/PasswordGate";
 import WatchlistManager from "@/components/autotrade/WatchlistManager";
 
+interface AccountSummary {
+  cash: number;
+  deposit_total: number;
+  total_eval: number;
+  buy_total: number;
+  eval_total: number;
+  pnl_amount: number;
+  pnl_pct: number;
+  today_buy: number;
+  today_sell: number;
+  net_asset: number;
+  error?: string;
+}
+
 interface Status {
   system_on: boolean;
   trades_today: number;
@@ -105,6 +119,7 @@ const REASON_LABEL: Record<string, string> = {
 
 function AutoTradeContent() {
   const [status,       setStatus]       = useState<Status | null>(null);
+  const [account,      setAccount]      = useState<AccountSummary | null>(null);
   const [trades,       setTrades]       = useState<Trade[]>([]);
   const [signals,      setSignals]      = useState<Signal[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -121,10 +136,12 @@ function AutoTradeContent() {
   useEffect(() => {
     Promise.all([
       fetch(`${API}/autotrade/status`).then((r) => r.json()).catch(() => null),
+      fetch(`${API}/autotrade/account`).then((r) => r.json()).catch(() => null),
       fetch(`${API}/autotrade/trades`).then((r) => r.json()).catch(() => []),
       fetch(`${API}/autotrade/signals`).then((r) => r.json()).catch(() => []),
-    ]).then(([s, t, sig]) => {
+    ]).then(([s, acc, t, sig]) => {
       setStatus(s);
+      setAccount(acc?.error ? null : acc);
       setTrades(Array.isArray(t) ? t : []);
       setSignals(Array.isArray(sig) ? sig : []);
       setLoading(false);
@@ -429,6 +446,44 @@ function AutoTradeContent() {
             </span>
           </span>
         </div>
+
+        {/* 계좌 현황 */}
+        {account && (
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>계좌 현황</span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>KIS 한국투자증권</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 0 }}>
+              {[
+                { label: "주문가능 예수금",  value: `${Math.round(account.cash / 10000).toLocaleString()}만원`,          color: "var(--accent)" },
+                { label: "총 평가금액",      value: `${Math.round(account.total_eval / 10000).toLocaleString()}만원`,     color: "var(--text-primary)" },
+                { label: "매입금액",         value: `${Math.round(account.buy_total / 10000).toLocaleString()}만원`,      color: "var(--text-secondary)" },
+                { label: "평가손익",         value: `${account.pnl_amount >= 0 ? "+" : ""}${Math.round(account.pnl_amount / 10000).toLocaleString()}만원`, color: account.pnl_amount >= 0 ? "var(--green)" : "var(--red)" },
+                { label: "수익률",           value: `${account.pnl_pct >= 0 ? "+" : ""}${account.pnl_pct.toFixed(2)}%`,  color: account.pnl_pct >= 0 ? "var(--green)" : "var(--red)" },
+              ].map(({ label, value, color }, i) => (
+                <div key={label} style={{
+                  padding: "14px 18px",
+                  borderRight: i < 4 ? "1px solid var(--border)" : "none",
+                }}>
+                  <p style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 500, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</p>
+                  <p style={{ color, fontSize: 16, fontWeight: 700, margin: 0 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "10px 20px", borderTop: "1px solid var(--border)", display: "flex", gap: 24 }}>
+              {[
+                { label: "금일 매수", value: `${Math.round(account.today_buy / 10000).toLocaleString()}만원` },
+                { label: "금일 매도", value: `${Math.round(account.today_sell / 10000).toLocaleString()}만원` },
+                { label: "순자산",    value: `${Math.round(account.net_asset / 10000).toLocaleString()}만원` },
+              ].map(({ label, value }) => (
+                <span key={label} style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {label} <strong style={{ color: "var(--text-secondary)" }}>{value}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 워치리스트 관리 */}
         <WatchlistManager apiUrl={API ?? ""} />

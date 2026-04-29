@@ -488,4 +488,45 @@ def create_scheduler() -> AsyncIOScheduler:
     from backend.services.quant_scheduler import scan_and_trade
     scheduler.add_job(scan_and_trade, "interval", minutes=10, id="quant_scan", max_instances=1)
 
+    # ── 전종목 골든크로스 프리스캔 — 매일 KST 08:30 (UTC 23:30 전날) ──
+    scheduler.add_job(
+        _prescan_market,
+        CronTrigger(hour=23, minute=30, timezone="UTC"),
+        id="market_prescan",
+        max_instances=1,
+    )
+    # ── 유니버스 주간 갱신 — 매주 월요일 KST 07:00 (UTC 22:00 일요일) ──
+    scheduler.add_job(
+        _build_universe,
+        CronTrigger(day_of_week="sun", hour=22, minute=0, timezone="UTC"),
+        id="universe_build",
+        max_instances=1,
+    )
+
     return scheduler
+
+
+async def _prescan_market():
+    """장 시작 전 KOSPI+KOSDAQ 전종목 골든크로스 프리스캔"""
+    from backend.services.market_scanner import prescan_golden_cross, build_kr_universe
+    from backend.services.db_cache import _get_client as _sb
+    try:
+        count_res = _sb().table("market_universe").select("ticker", count="exact").limit(1).execute()
+        count = count_res.count or 0
+        if count < 100:
+            logger.info("[scheduler] market_universe 비어있음 → 즉시 빌드")
+            await _run_sync(build_kr_universe)
+        n = await _run_sync(prescan_golden_cross)
+        logger.info(f"✅ [scheduler] prescan_market 완료: {n}종목 후보")
+    except Exception as e:
+        logger.error(f"❌ [scheduler] prescan_market 실패: {e}")
+
+
+async def _build_universe():
+    """KOSPI+KOSDAQ 전종목 유니버스 주간 갱신"""
+    from backend.services.market_scanner import build_kr_universe
+    try:
+        n = await _run_sync(build_kr_universe)
+        logger.info(f"✅ [scheduler] universe_build 완료: {n}종목")
+    except Exception as e:
+        logger.error(f"❌ [scheduler] universe_build 실패: {e}")

@@ -554,11 +554,15 @@ def _check_and_sell(h: dict, market: str, regime: str = "sideways"):
 def _buy_stocks(target_market: str, held: set[str], pos_mult: float, regime: str = "sideways"):
     """target_market 종목 신규 매수 스캔."""
     try:
+        # 골든크로스 프리스캔 후보 (장 시작 전 08:30 캐시됨) — 최우선
+        from backend.services.market_scanner import get_scan_candidates
+        scan_candidates = [s for s in get_scan_candidates() if s.get("market", "KR").upper() == target_market]
+
         journal_stocks  = _sb().table("quant_stocks").select("ticker, name, market").execute().data or []
         universe_stocks = _sb().table("autotrade_watchlist").select("ticker, name, market").execute().data or []
         seen: set[str] = set()
         all_stocks: list[dict] = []
-        for s in universe_stocks + journal_stocks:
+        for s in scan_candidates + universe_stocks + journal_stocks:
             if s["ticker"] not in seen:
                 all_stocks.append(s)
                 seen.add(s["ticker"])
