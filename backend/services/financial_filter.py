@@ -113,10 +113,14 @@ def _get_stock_return_20d(ticker: str, market: str) -> float | None:
         return None
 
 
-def passes_5stage_filter(ticker: str, market: str = "KR") -> tuple[bool, str, dict]:
+def passes_5stage_filter(ticker: str, market: str = "KR", regime: str = "sideways") -> tuple[bool, str, dict]:
     """
     5단계 재무 필터 — (통과여부, 실패이유, 재무데이터)
     데이터 조회 실패 시 통과 처리 (보수적 접근)
+
+    장기 퀀트 표준 (Buffett·Greenblatt·AQR 기준):
+      PER 5~35 (Magic Formula 확장), ROE 8%+, 부채비율 200% 이하
+      베어장: Stage 5 모멘텀 임계값 완화 (코스피 대비 -3%p 이내 허용)
     """
     fd = _get_kr_fundamentals(ticker) if market == "KR" else _get_us_fundamentals(ticker)
 
@@ -127,10 +131,10 @@ def passes_5stage_filter(ticker: str, market: str = "KR") -> tuple[bool, str, di
     if fd.get("warn") == "Y":
         return False, "S1: 투자주의 종목", fd
 
-    # Stage 2 — 수익성
+    # Stage 2 — 수익성 (PER 5~35 — Greenblatt Magic Formula 확장)
     per = fd.get("per")
-    if per is not None and not (5 <= float(per) <= 30):
-        return False, f"S2: PER {per:.1f} (5~30 범위 외)", fd
+    if per is not None and not (5 <= float(per) <= 35):
+        return False, f"S2: PER {per:.1f} (5~35 범위 외)", fd
     roe = fd.get("roe")
     if roe is not None and float(roe) < 0.08:
         return False, f"S2: ROE {roe*100:.1f}% (8% 미만)", fd
@@ -154,11 +158,13 @@ def passes_5stage_filter(ticker: str, market: str = "KR") -> tuple[bool, str, di
     if earn_growth is not None and float(earn_growth) < 0:
         return False, "S4: 영업이익 YoY 감소", fd
 
-    # Stage 5 — 모멘텀 (코스피 대비 초과수익)
+    # Stage 5 — 모멘텀 (코스피 대비 상대 강도)
+    # 베어장: 코스피 대비 -3%p 이내까지 허용 (반등 초기 진입 허용)
     kospi_ret  = _get_kospi_return_20d()
     stock_ret  = _get_stock_return_20d(ticker, market)
     if kospi_ret is not None and stock_ret is not None:
-        if stock_ret < kospi_ret:
-            return False, f"S5: 20일 수익률 {stock_ret:.1f}% < 코스피 {kospi_ret:.1f}%", fd
+        threshold = kospi_ret - 3.0 if regime == "bear" else kospi_ret
+        if stock_ret < threshold:
+            return False, f"S5: 20일 수익률 {stock_ret:.1f}% < 임계 {threshold:.1f}%", fd
 
     return True, "OK", fd

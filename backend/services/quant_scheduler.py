@@ -57,43 +57,43 @@ from backend.services.kis_trader import (
     calculate_quantity,
 )
 
-# ── 파라미터 ──────────────────────────────────────────
+# ── 파라미터 (장기 퀀트 표준: Buffett·Greenblatt·AQR 기준) ────
 MAX_AMOUNT_PER_STOCK     = 500_000    # KR 종목당 최대 투자금 (원)
 MAX_AMOUNT_PER_STOCK_USD = 400        # US 종목당 최대 투자금 (달러 ≈ 55만원)
-STOP_LOSS_PCT        = -5.0           # 손절
-TAKE_PROFIT_PCT      = 10.0           # 익절
-TRAILING_TRIGGER_PCT = 5.0            # 트레일링 활성화 기준
+STOP_LOSS_PCT        = -7.0           # 손절 (단기 노이즈 회피, 1:2 RR)
+TAKE_PROFIT_PCT      = 15.0           # 익절 (장기 추세 수익 극대화)
+TRAILING_TRIGGER_PCT = 7.0            # 트레일링 활성화 기준
 FORCE_CLOSE_HOUR     = (15, 0)        # KR 강제 청산 시각
 US_FORCE_CLOSE_HOUR  = (6,  0)        # US 강제 청산 시각 (KST)
-MAX_POSITIONS        = 5              # 최대 동시 보유 종목
-MAX_SECTOR_POSITIONS = 2              # 동일 섹터 최대
-KOSPI_HALT_PCT       = -1.5           # 코스피 하락 시 신규 진입 중단
-DAILY_LOSS_LIMIT_PCT = -3.0           # 일일 손실 한도
-VOLUME_MULT          = 1.5            # 거래량 배수 (sideways 기본값)
-RSI_MIN, RSI_MAX     = 40, 60         # RSI 진입 범위 (sideways 기본값)
-PER_MIN, PER_MAX     = 5.0, 30.0      # PER 범위 (sideways 기본값)
+MAX_POSITIONS        = 8              # 최대 동시 보유 (분산 강화: 5 → 8)
+MAX_SECTOR_POSITIONS = 3              # 동일 섹터 최대 (2 → 3)
+KOSPI_HALT_PCT       = -2.5           # 코스피 하락 시 신규 진입 중단
+DAILY_LOSS_LIMIT_PCT = -5.0           # 일일 손실 한도
+VOLUME_MULT          = 1.2            # 거래량 배수 (sideways 기본값, 1.5 → 1.2)
+RSI_MIN, RSI_MAX     = 35, 70         # RSI 진입 범위 (Wilder 원본 30~70 기반)
+PER_MIN, PER_MAX     = 5.0, 35.0      # PER 범위 (Greenblatt Magic Formula 확장)
 
 REGIME_PARAMS: dict[str, dict] = {
     "bull": {
-        "RSI_MIN":        40,
+        "RSI_MIN":        35,
         "RSI_MAX":        80,
-        "PER_MAX":        45,
+        "PER_MAX":        50,         # 강세장 성장주 허용
+        "VOLUME_MULT":    1.0,
+        "KOSPI_HALT_PCT": -3.0,
+    },
+    "sideways": {
+        "RSI_MIN":        35,
+        "RSI_MAX":        70,
+        "PER_MAX":        35,
         "VOLUME_MULT":    1.2,
         "KOSPI_HALT_PCT": -2.5,
     },
-    "sideways": {
-        "RSI_MIN":        40,
-        "RSI_MAX":        65,
-        "PER_MAX":        30,
-        "VOLUME_MULT":    1.5,
-        "KOSPI_HALT_PCT": -1.5,
-    },
     "bear": {
-        "RSI_MIN":        35,
-        "RSI_MAX":        55,
-        "PER_MAX":        20,
-        "VOLUME_MULT":    2.0,
-        "KOSPI_HALT_PCT": -1.0,
+        "RSI_MIN":        30,         # 과매도 반등 진입 허용
+        "RSI_MAX":        60,
+        "PER_MAX":        25,         # 가치주 중심
+        "VOLUME_MULT":    1.5,
+        "KOSPI_HALT_PCT": -2.0,
     },
 }
 MA_SHORT, MA_LONG    = 5, 20
@@ -211,15 +211,19 @@ def _volume_ok(volumes: list[float], volume_mult: float = VOLUME_MULT) -> bool |
     return avg5 > 0 and volumes[0] >= avg5 * volume_mult
 
 
-def _mtf_ok(closes: list[float]) -> bool | None:
+def _mtf_ok(closes: list[float], regime: str = "sideways") -> bool | None:
     """멀티 타임프레임 확인 (일봉 기반)
     MA5 > MA20 > MA60 — 3개 정배열이면 추세 강함
     일봉 MTF: MA60이 장기 추세(H1 역할), MA20이 중기(M15 역할)
+
+    베어장: MA20이 MA60의 90% 이상이면 통과 (반등 초기 진입 허용)
     """
     ma20 = _ma(closes, MA_LONG)
     ma60 = _ma(closes, MA_TREND)
     if ma20 is None or ma60 is None:
         return None  # 데이터 부족 → 필터 패스
+    if regime == "bear":
+        return ma20 >= ma60 * 0.9  # 베어장 완화: -10% 이내면 진입 허용
     return ma20 > ma60  # 중기 추세가 장기 추세 위에 있어야 함
 
 
@@ -374,7 +378,7 @@ def _calc_signal(ticker: str, market: str = "KR", regime: str = "sideways") -> d
     rsi     = _rsi(closes)
     macd_ok = _macd_bullish(closes)
     vol_ok  = _volume_ok(volumes, vol_mult)
-    mtf_ok  = _mtf_ok(closes)
+    mtf_ok  = _mtf_ok(closes, regime)
     per_ok  = per is None or (PER_MIN <= per <= per_max)
     rsi_ok  = rsi is None or (rsi_min <= rsi <= rsi_max)
 
@@ -585,15 +589,18 @@ def _buy_stocks(target_market: str, held: set[str], pos_mult: float, regime: str
                 if sig["signal"] != "buy" or not sig.get("current_price"):
                     continue
 
+                # 5단계 재무 필터 (1회만 호출 — 결과 재사용)
+                fin_passed, fin_reason = True, ""
+                fin_details: dict = {}
                 if USE_FINANCIAL_FILTER:
                     try:
                         from backend.services.financial_filter import passes_5stage_filter
-                        ok, reason_f, _ = passes_5stage_filter(ticker, market)
-                        if not ok:
-                            print(f"[quant] {ticker} 재무 필터 탈락: {reason_f}")
+                        fin_passed, fin_reason, fin_details = passes_5stage_filter(ticker, market, regime)
+                        if not fin_passed:
+                            print(f"[quant] {ticker} 재무 필터 탈락: {fin_reason}")
                             continue
                     except Exception:
-                        pass
+                        fin_passed = True
 
                 # DART 긴급차단 (Gemini 호출 전 코드 레벨 차단)
                 if market == "KR":
@@ -612,18 +619,6 @@ def _buy_stocks(target_market: str, held: set[str], pos_mult: float, regime: str
                 if news_blocked:
                     print(f"[quant] {ticker} 부정 뉴스 — 진입 차단")
                     continue
-
-                fin_passed, fin_reason = True, ""
-                fin_details: dict = {}
-                if USE_FINANCIAL_FILTER:
-                    try:
-                        from backend.services.financial_filter import passes_5stage_filter
-                        fin_passed, fin_reason, fin_details = passes_5stage_filter(ticker, market)
-                        if not fin_passed:
-                            print(f"[quant] {ticker} 재무 필터 탈락: {fin_reason}")
-                            continue
-                    except Exception:
-                        fin_passed = True
 
                 if market == "US":
                     amount = int(MAX_AMOUNT_PER_STOCK_USD * pos_mult)
