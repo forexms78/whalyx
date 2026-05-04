@@ -101,11 +101,13 @@ def _load_universe() -> list[dict]:
     return []
 
 
-def prescan_golden_cross(top_n: int = 1500) -> int:
+def prescan_golden_cross(top_n: int = 600) -> int:
     """
     전종목 일봉 yfinance 배치 다운로드 → MA5/MA20 골든크로스 or 근접 후보 추출 → Redis 저장.
     near_cross: MA5가 MA20의 97% 이상 ~ 105% 미만 (돌파 직전/직후)
     Returns: 후보 종목 수
+
+    Render free worker 1개를 12분 이상 묶지 않도록 top_n=600, 시총 0종목 사전 제외.
     """
     try:
         import yfinance as yf
@@ -115,6 +117,8 @@ def prescan_golden_cross(top_n: int = 1500) -> int:
             print("[scanner] universe 로드 실패 — 프리스캔 중단")
             return 0
 
+        # 시총 0 또는 None 제외(상장폐지·거래정지 종목) → yfinance 호출 절감
+        rows = [r for r in rows if (r.get("marcap") or 0) > 0]
         # 시총 내림차순 상위 top_n
         rows.sort(key=lambda x: x.get("marcap") or 0, reverse=True)
         rows = rows[:top_n]
