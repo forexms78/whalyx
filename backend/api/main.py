@@ -582,13 +582,12 @@ async def autotrade_account():
 
 @app.post("/autotrade/prescan")
 async def trigger_prescan():
-    """수동 전종목 프리스캔 트리거 (즉시 실행). prescan 내부에서 universe 자동 빌드."""
+    """수동 전종목 프리스캔 트리거 — 백그라운드 실행. 1~3분 후 /autotrade/signals로 갱신 확인.
+    yfinance 600종목 다운로드가 Render proxy timeout(100s) 초과하므로 fire-and-forget."""
     from backend.services.market_scanner import prescan_golden_cross
-    try:
-        n = await _run(prescan_golden_cross)
-        return {"candidates": n, "message": f"프리스캔 완료: {n}종목 후보 추출"}
-    except Exception as e:
-        return {"error": str(e)}
+    import asyncio
+    asyncio.create_task(_run(prescan_golden_cross))
+    return {"started": True, "message": "프리스캔 백그라운드 시작 — 1~3분 후 /autotrade/signals 확인"}
 
 
 @app.get("/autotrade/trades")
