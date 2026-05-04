@@ -614,7 +614,7 @@ async def autotrade_signals():
 
 @app.get("/autotrade/_debug/universe")
 async def autotrade_debug_universe():
-    """Render 환경에서 universe 빌드 경로별 상태 확인 — fdr·정적 JSON·Redis·Supabase."""
+    """Render 환경에서 universe 빌드 경로별 상태 확인 — fdr·정적 JSON·Redis·yfinance."""
     import socket
     info: dict = {"hostname": socket.gethostname()}
 
@@ -625,7 +625,6 @@ async def autotrade_debug_universe():
         try:
             df = fdr.StockListing("KOSPI")
             info["fdr_kospi_rows"] = int(len(df))
-            info["fdr_kospi_cols"] = list(df.columns)[:8]
         except Exception as e:
             info["fdr_kospi_error"] = f"{type(e).__name__}: {str(e)[:120]}"
     except ImportError as e:
@@ -636,7 +635,6 @@ async def autotrade_debug_universe():
         from backend.services.market_scanner import _load_static_universe
         static = _load_static_universe()
         info["static_json_count"] = len(static)
-        info["static_json_sample"] = static[:3] if static else []
     except Exception as e:
         info["static_json_error"] = str(e)
 
@@ -649,6 +647,21 @@ async def autotrade_debug_universe():
         info["redis_scan_candidates_count"] = len(scan) if isinstance(scan, list) else None
     except Exception as e:
         info["redis_error"] = str(e)
+
+    # 4. yfinance 단일 종목 다운로드 테스트 (삼성전자 .KS, 셀트리온 .KQ)
+    try:
+        import yfinance as yf
+        info["yfinance_version"] = getattr(yf, "__version__", "?")
+        for symbol in ("005930.KS", "068270.KQ"):
+            try:
+                d = yf.download(symbol, period="10d", progress=False, auto_adjust=True)
+                info[f"yf_{symbol}_rows"] = int(len(d))
+                if len(d):
+                    info[f"yf_{symbol}_last_close"] = float(d["Close"].iloc[-1])
+            except Exception as e:
+                info[f"yf_{symbol}_error"] = f"{type(e).__name__}: {str(e)[:120]}"
+    except Exception as e:
+        info["yfinance_error"] = str(e)
 
     return info
 
