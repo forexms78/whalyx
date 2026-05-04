@@ -586,7 +586,14 @@ async def trigger_prescan():
     yfinance 600종목 다운로드가 Render proxy timeout(100s) 초과하므로 fire-and-forget."""
     from backend.services.market_scanner import prescan_golden_cross
     import asyncio
-    asyncio.create_task(_run(prescan_golden_cross))
+
+    async def _bg():
+        try:
+            await _run(prescan_golden_cross)
+        except Exception as e:
+            print(f"[prescan bg] error: {e}")
+
+    asyncio.create_task(_bg())
     return {"started": True, "message": "프리스캔 백그라운드 시작 — 1~3분 후 /autotrade/signals 확인"}
 
 
