@@ -611,6 +611,20 @@ async def autotrade_signals():
     from backend.services.quant_scheduler import get_universe_signals
     return await _run(get_universe_signals)
 
+
+@app.get("/autotrade/scan-candidates")
+async def autotrade_scan_candidates():
+    """prescan_golden_cross 결과(KOSPI+KOSDAQ 시총 상위 600 중 골든크로스/근접 후보).
+    실제 매매 시 _buy_stocks가 워치리스트와 합쳐 평가 풀로 사용."""
+    from backend.services.market_scanner import get_scan_candidates
+    candidates = get_scan_candidates()
+    return {
+        "count": len(candidates),
+        "golden_cross": sum(1 for c in candidates if c.get("golden_cross")),
+        "near_cross":   sum(1 for c in candidates if c.get("near_cross")),
+        "candidates":   candidates,
+    }
+
 @app.get("/autotrade/scan-logs")
 async def autotrade_scan_logs():
     """직전 자동매매 스캔 결과 — 종목별 매수/거절 사유 포함"""
