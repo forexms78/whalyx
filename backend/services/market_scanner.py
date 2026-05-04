@@ -2,18 +2,22 @@
 한국 주식 시장 전종목 골든크로스 프리스캐너
 
 [흐름]
-1. build_kr_universe(): KOSPI+KOSDAQ 전종목 → Supabase market_universe (주 1회)
-2. prescan_golden_cross(): 전종목 일봉 yfinance 배치 → MA5/MA20 후보 → Redis 8h 캐시
+1. build_kr_universe(): KOSPI+KOSDAQ 전종목 → Redis(`kr_universe`, 7d) + Supabase(best-effort)
+2. prescan_golden_cross(): Redis 우선 → 비어있으면 즉시 build 후 재조회 → 시총 상위 top_n 종목 yfinance 배치 → MA5/MA20 후보 → Redis 8h 캐시
 3. get_scan_candidates(): Redis 후보 반환 → _buy_stocks 우선 스캔
 """
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from backend.services import redis_cache
+
 _KST = ZoneInfo("Asia/Seoul")
+_UNIVERSE_KEY = "kr_universe"
+_UNIVERSE_TTL = 7 * 86400  # 7일
 
 
 def build_kr_universe() -> int:
-    """KOSPI + KOSDAQ 전종목 리스트 → Supabase market_universe 저장. 저장 건수 반환."""
+    """KOSPI + KOSDAQ 전종목 리스트 → Redis 저장 + Supabase upsert(best-effort). 저장 건수 반환."""
     try:
         import FinanceDataReader as fdr
 
@@ -45,13 +49,21 @@ def build_kr_universe() -> int:
             print("[scanner] build_kr_universe: 조회된 종목 없음")
             return 0
 
-        from backend.services.db_cache import _get_client as _sb
-        total = 0
-        for i in range(0, len(rows), 500):
-            _sb().table("market_universe").upsert(rows[i:i+500], on_conflict="ticker").execute()
-            total += len(rows[i:i+500])
-        print(f"[scanner] market_universe 저장 완료: {total}종목")
-        return total
+        redis_cache.set(_UNIVERSE_KEY, rows, ttl=_UNIVERSE_TTL)
+        print(f"[scanner] kr_universe Redis 저장: {len(rows)}종목")
+
+        # Supabase 백업 저장 (테이블 없거나 권한 없어도 무시)
+        try:
+            from backend.services.db_cache import _get_client as _sb
+            client = _sb()
+            if client:
+                for i in range(0, len(rows), 500):
+                    client.table("market_universe").upsert(rows[i:i+500], on_conflict="ticker").execute()
+                print(f"[scanner] market_universe Supabase 백업 완료")
+        except Exception as e:
+            print(f"[scanner] Supabase 백업 스킵: {str(e)[:80]}")
+
+        return len(rows)
 
     except ImportError:
         print("[scanner] FinanceDataReader 미설치 — pip install finance-datareader")
@@ -61,20 +73,46 @@ def build_kr_universe() -> int:
         return 0
 
 
-def prescan_golden_cross(top_n: int = 600) -> int:
+def _load_universe() -> list[dict]:
+    """Redis → Supabase → 즉시 빌드 순서로 universe 조회."""
+    rows = redis_cache.get(_UNIVERSE_KEY)
+    if isinstance(rows, list) and rows:
+        return rows
+
+    # Supabase 폴백
+    try:
+        from backend.services.db_cache import _get_client as _sb
+        client = _sb()
+        if client:
+            res = client.table("market_universe").select("ticker, name, marcap").execute()
+            rows = res.data or []
+            if rows:
+                redis_cache.set(_UNIVERSE_KEY, rows, ttl=_UNIVERSE_TTL)
+                return rows
+    except Exception:
+        pass
+
+    # 즉시 빌드
+    print("[scanner] universe 비어있음 → 즉시 build_kr_universe 실행")
+    if build_kr_universe() > 0:
+        rows = redis_cache.get(_UNIVERSE_KEY)
+        if isinstance(rows, list):
+            return rows
+    return []
+
+
+def prescan_golden_cross(top_n: int = 1500) -> int:
     """
     전종목 일봉 yfinance 배치 다운로드 → MA5/MA20 골든크로스 or 근접 후보 추출 → Redis 저장.
-    near_cross: MA5가 MA20의 98% 이상 ~ 105% 미만 (돌파 직전/직후)
+    near_cross: MA5가 MA20의 97% 이상 ~ 105% 미만 (돌파 직전/직후)
     Returns: 후보 종목 수
     """
     try:
         import yfinance as yf
-        from backend.services.db_cache import _get_client as _sb
-        from backend.services import redis_cache
 
-        rows = _sb().table("market_universe").select("ticker, name, marcap").execute().data or []
+        rows = _load_universe()
         if not rows:
-            print("[scanner] market_universe 비어있음 — build_kr_universe 먼저 실행")
+            print("[scanner] universe 로드 실패 — 프리스캔 중단")
             return 0
 
         # 시총 내림차순 상위 top_n
@@ -82,7 +120,7 @@ def prescan_golden_cross(top_n: int = 600) -> int:
         rows = rows[:top_n]
 
         tickers_yf = [f"{r['ticker']}.KS" for r in rows]
-        ticker_map  = {f"{r['ticker']}.KS": r for r in rows}
+        ticker_map = {f"{r['ticker']}.KS": r for r in rows}
 
         print(f"[scanner] {len(tickers_yf)}종목 배치 다운로드 중...")
         data = yf.download(
@@ -145,7 +183,6 @@ def prescan_golden_cross(top_n: int = 600) -> int:
 def get_scan_candidates() -> list[dict]:
     """Redis 후보 반환. 없으면 빈 리스트."""
     try:
-        from backend.services import redis_cache
         result = redis_cache.get("scan_candidates")
         return result if isinstance(result, list) else []
     except Exception:

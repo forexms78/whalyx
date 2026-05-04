@@ -507,19 +507,13 @@ def create_scheduler() -> AsyncIOScheduler:
 
 
 async def _prescan_market():
-    """장 시작 전 KOSPI+KOSDAQ 전종목 골든크로스 프리스캔"""
-    from backend.services.market_scanner import prescan_golden_cross, build_kr_universe
-    from backend.services.db_cache import _get_client as _sb
+    """장 시작 전 KOSPI+KOSDAQ 전종목 골든크로스 프리스캔. prescan 내부에서 universe 자동 빌드."""
+    from backend.services.market_scanner import prescan_golden_cross
     try:
-        count_res = _sb().table("market_universe").select("ticker", count="exact").limit(1).execute()
-        count = count_res.count or 0
-        if count < 100:
-            logger.info("[scheduler] market_universe 비어있음 → 즉시 빌드")
-            await _run_sync(build_kr_universe)
         n = await _run_sync(prescan_golden_cross)
-        logger.info(f"✅ [scheduler] prescan_market 완료: {n}종목 후보")
+        logger.info(f"[scheduler] prescan_market 완료: {n}종목 후보")
     except Exception as e:
-        logger.error(f"❌ [scheduler] prescan_market 실패: {e}")
+        logger.error(f"[scheduler] prescan_market 실패: {e}")
 
 
 async def _build_universe():
