@@ -124,13 +124,18 @@ def _load_static_universe() -> list[dict]:
     return []
 
 
-def prescan_golden_cross(top_n: int = 600) -> int:
+def _yf_suffix(market_type: str) -> str:
+    """yahoo finance suffix — KOSPI=.KS, KOSDAQ=.KQ"""
+    return ".KQ" if (market_type or "").upper() == "KOSDAQ" else ".KS"
+
+
+def prescan_golden_cross(top_n: int = 400, chunk_size: int = 100) -> int:
     """
     전종목 일봉 yfinance 배치 다운로드 → MA5/MA20 골든크로스 or 근접 후보 추출 → Redis 저장.
     near_cross: MA5가 MA20의 97% 이상 ~ 105% 미만 (돌파 직전/직후)
     Returns: 후보 종목 수
 
-    Render free worker 1개를 12분 이상 묶지 않도록 top_n=600, 시총 0종목 사전 제외.
+    KOSPI/KOSDAQ suffix 구분(.KS/.KQ)·100종목 chunk 분할로 yfinance rate limit 회피.
     """
     try:
         import yfinance as yf
@@ -140,66 +145,77 @@ def prescan_golden_cross(top_n: int = 600) -> int:
             print("[scanner] universe 로드 실패 — 프리스캔 중단")
             return 0
 
-        # 시총 0 또는 None 제외(상장폐지·거래정지 종목) → yfinance 호출 절감
         rows = [r for r in rows if (r.get("marcap") or 0) > 0]
-        # 시총 내림차순 상위 top_n
         rows.sort(key=lambda x: x.get("marcap") or 0, reverse=True)
         rows = rows[:top_n]
 
-        tickers_yf = [f"{r['ticker']}.KS" for r in rows]
-        ticker_map = {f"{r['ticker']}.KS": r for r in rows}
+        # market_type별 suffix 분기 — KOSDAQ에 .KS 붙이면 yahoo가 빈 응답 반환
+        ticker_map: dict[str, dict] = {}
+        for r in rows:
+            yf_t = f"{r['ticker']}{_yf_suffix(r.get('market_type', 'KOSPI'))}"
+            ticker_map[yf_t] = r
 
-        print(f"[scanner] {len(tickers_yf)}종목 배치 다운로드 중...")
-        data = yf.download(
-            tickers_yf,
-            period="35d",
-            auto_adjust=True,
-            group_by="ticker",
-            threads=True,
-            progress=False,
-        )
-
+        all_tickers = list(ticker_map.keys())
         candidates: list[dict] = []
+        scanned = 0
+        chunks = [all_tickers[i:i+chunk_size] for i in range(0, len(all_tickers), chunk_size)]
 
-        for yf_ticker in tickers_yf:
+        print(f"[scanner] {len(all_tickers)}종목 → {len(chunks)} chunk 분할 다운로드")
+
+        for idx, chunk in enumerate(chunks, 1):
             try:
-                if len(tickers_yf) == 1:
-                    closes = data["Close"].dropna().tolist()[::-1]
-                else:
-                    closes = data[yf_ticker]["Close"].dropna().tolist()[::-1]
-
-                if len(closes) < 22:
-                    continue
-
-                ma5_now   = sum(closes[:5])   / 5
-                ma20_now  = sum(closes[:20])  / 20
-                ma5_prev  = sum(closes[1:6])  / 5
-                ma20_prev = sum(closes[1:21]) / 20
-
-                golden_cross = ma5_prev <= ma20_prev and ma5_now > ma20_now
-                near_cross   = (
-                    not golden_cross
-                    and ma5_now >= ma20_now * 0.97
-                    and ma5_now < ma20_now * 1.05
+                data = yf.download(
+                    chunk,
+                    period="35d",
+                    auto_adjust=True,
+                    group_by="ticker",
+                    threads=True,
+                    progress=False,
                 )
-
-                if golden_cross or near_cross:
-                    info   = ticker_map.get(yf_ticker, {})
-                    ticker = yf_ticker.replace(".KS", "")
-                    candidates.append({
-                        "ticker":       ticker,
-                        "name":         info.get("name", ticker),
-                        "market":       "KR",
-                        "ma5":          round(ma5_now, 2),
-                        "ma20":         round(ma20_now, 2),
-                        "golden_cross": golden_cross,
-                        "near_cross":   near_cross,
-                    })
-            except Exception:
+            except Exception as e:
+                print(f"[scanner] chunk {idx}/{len(chunks)} 다운로드 실패: {str(e)[:80]}")
                 continue
 
+            for yf_ticker in chunk:
+                scanned += 1
+                try:
+                    if len(chunk) == 1:
+                        closes = data["Close"].dropna().tolist()[::-1]
+                    else:
+                        closes = data[yf_ticker]["Close"].dropna().tolist()[::-1]
+
+                    if len(closes) < 22:
+                        continue
+
+                    ma5_now   = sum(closes[:5])   / 5
+                    ma20_now  = sum(closes[:20])  / 20
+                    ma5_prev  = sum(closes[1:6])  / 5
+                    ma20_prev = sum(closes[1:21]) / 20
+
+                    golden_cross = ma5_prev <= ma20_prev and ma5_now > ma20_now
+                    near_cross   = (
+                        not golden_cross
+                        and ma5_now >= ma20_now * 0.97
+                        and ma5_now < ma20_now * 1.05
+                    )
+
+                    if golden_cross or near_cross:
+                        info   = ticker_map.get(yf_ticker, {})
+                        ticker = info.get("ticker") or yf_ticker.split(".")[0]
+                        candidates.append({
+                            "ticker":       ticker,
+                            "name":         info.get("name", ticker),
+                            "market":       "KR",
+                            "ma5":          round(ma5_now, 2),
+                            "ma20":         round(ma20_now, 2),
+                            "golden_cross": golden_cross,
+                            "near_cross":   near_cross,
+                        })
+                except Exception:
+                    continue
+
         redis_cache.set("scan_candidates", candidates, ttl=28800)  # 8시간
-        print(f"[scanner] 골든크로스 후보: {len(candidates)}종목 / {len(tickers_yf)}종목 스캔")
+        print(f"[scanner] 골든크로스 후보: {len(candidates)}종목 / {scanned}종목 스캔")
         return len(candidates)
 
     except Exception as e:
