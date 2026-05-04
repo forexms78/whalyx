@@ -612,6 +612,47 @@ async def autotrade_signals():
     return await _run(get_universe_signals)
 
 
+@app.get("/autotrade/_debug/universe")
+async def autotrade_debug_universe():
+    """Render 환경에서 universe 빌드 경로별 상태 확인 — fdr·정적 JSON·Redis·Supabase."""
+    import socket
+    info: dict = {"hostname": socket.gethostname()}
+
+    # 1. fdr 호출 시도
+    try:
+        import FinanceDataReader as fdr
+        info["fdr_version"] = getattr(fdr, "__version__", "?")
+        try:
+            df = fdr.StockListing("KOSPI")
+            info["fdr_kospi_rows"] = int(len(df))
+            info["fdr_kospi_cols"] = list(df.columns)[:8]
+        except Exception as e:
+            info["fdr_kospi_error"] = f"{type(e).__name__}: {str(e)[:120]}"
+    except ImportError as e:
+        info["fdr_error"] = f"ImportError: {e}"
+
+    # 2. 정적 JSON 폴백
+    try:
+        from backend.services.market_scanner import _load_static_universe
+        static = _load_static_universe()
+        info["static_json_count"] = len(static)
+        info["static_json_sample"] = static[:3] if static else []
+    except Exception as e:
+        info["static_json_error"] = str(e)
+
+    # 3. Redis 캐시
+    try:
+        from backend.services import redis_cache
+        cached = redis_cache.get("kr_universe")
+        info["redis_kr_universe_count"] = len(cached) if isinstance(cached, list) else None
+        scan = redis_cache.get("scan_candidates")
+        info["redis_scan_candidates_count"] = len(scan) if isinstance(scan, list) else None
+    except Exception as e:
+        info["redis_error"] = str(e)
+
+    return info
+
+
 @app.get("/autotrade/scan-candidates")
 async def autotrade_scan_candidates():
     """prescan_golden_cross 결과(KOSPI+KOSDAQ 시총 상위 600 중 골든크로스/근접 후보).

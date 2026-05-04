@@ -74,7 +74,8 @@ def build_kr_universe() -> int:
 
 
 def _load_universe() -> list[dict]:
-    """Redis → Supabase → 즉시 빌드 순서로 universe 조회."""
+    """Redis → Supabase → 즉시 빌드(fdr) → 정적 JSON 폴백 순서로 universe 조회.
+    Render 환경에서 fdr이 KRX 차단으로 실패해도 정적 JSON으로 동작 보장."""
     rows = redis_cache.get(_UNIVERSE_KEY)
     if isinstance(rows, list) and rows:
         return rows
@@ -92,12 +93,34 @@ def _load_universe() -> list[dict]:
     except Exception:
         pass
 
-    # 즉시 빌드
-    print("[scanner] universe 비어있음 → 즉시 build_kr_universe 실행")
+    # fdr 즉시 빌드 시도
+    print("[scanner] universe 비어있음 → 즉시 build_kr_universe(fdr) 시도")
     if build_kr_universe() > 0:
         rows = redis_cache.get(_UNIVERSE_KEY)
-        if isinstance(rows, list):
+        if isinstance(rows, list) and rows:
             return rows
+
+    # 정적 JSON 폴백 (Render에서 fdr 차단 시 핵심 폴백)
+    rows = _load_static_universe()
+    if rows:
+        print(f"[scanner] 정적 JSON 폴백 사용: {len(rows)}종목")
+        redis_cache.set(_UNIVERSE_KEY, rows, ttl=_UNIVERSE_TTL)
+        return rows
+
+    return []
+
+
+def _load_static_universe() -> list[dict]:
+    """패키지 내 정적 JSON에서 KR universe 로드. 로컬에서 fdr로 미리 추출한 시총 상위 데이터."""
+    import json
+    from pathlib import Path
+    try:
+        path = Path(__file__).resolve().parent.parent / "data" / "kr_universe.json"
+        if path.exists():
+            with path.open(encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"[scanner] 정적 universe 로드 실패: {e}")
     return []
 
 

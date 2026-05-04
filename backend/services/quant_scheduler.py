@@ -151,7 +151,27 @@ _trailing_activated: set[str] = set()
 def _ensure_universe():
     existing = _sb().table("autotrade_watchlist").select("ticker").execute().data or []
     existing_tickers = {r["ticker"] for r in existing}
-    to_insert = [s for s in DEFAULT_UNIVERSE if s["ticker"] not in existing_tickers]
+    to_insert: list[dict] = []
+    seen: set[str] = set(existing_tickers)
+
+    for s in DEFAULT_UNIVERSE:
+        if s["ticker"] not in seen:
+            to_insert.append(s)
+            seen.add(s["ticker"])
+
+    # 정적 JSON에서 KOSPI 시총 상위 30 + KOSDAQ 10 자동 보강 (총 워치리스트 80~100)
+    try:
+        from backend.services.market_scanner import _load_static_universe
+        static = _load_static_universe()
+        kospi  = [s for s in static if s.get("market_type") == "KOSPI"][:30]
+        kosdaq = [s for s in static if s.get("market_type") == "KOSDAQ"][:10]
+        for s in kospi + kosdaq:
+            if s["ticker"] not in seen:
+                to_insert.append({"ticker": s["ticker"], "name": s["name"], "market": "KR"})
+                seen.add(s["ticker"])
+    except Exception as e:
+        print(f"[quant] static universe 보강 실패: {e}")
+
     if to_insert:
         _sb().table("autotrade_watchlist").insert(to_insert).execute()
 
