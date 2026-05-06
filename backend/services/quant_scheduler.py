@@ -57,16 +57,20 @@ from backend.services.kis_trader import (
     calculate_quantity,
 )
 
+# ── 시장 활성화 토글 ─────────────────────────────────
+# US 거래 비활성화 시 환경변수 미설정/false. 켜려면 ENABLE_US_TRADING=true
+ENABLE_US_TRADING = os.getenv("ENABLE_US_TRADING", "false").lower() == "true"
+
 # ── 파라미터 (장기 퀀트 표준: Buffett·Greenblatt·AQR 기준) ────
-MAX_AMOUNT_PER_STOCK     = 500_000    # KR 종목당 최대 투자금 (원)
-MAX_AMOUNT_PER_STOCK_USD = 400        # US 종목당 최대 투자금 (달러 ≈ 55만원)
+MAX_AMOUNT_PER_STOCK     = 400_000    # KR 종목당 최대 투자금 (원, 잔고 200만원 / 5종목)
+MAX_AMOUNT_PER_STOCK_USD = 400        # US 종목당 최대 투자금 (달러, ENABLE_US_TRADING=true일 때만)
 STOP_LOSS_PCT        = -7.0           # 손절 (단기 노이즈 회피, 1:2 RR)
 TAKE_PROFIT_PCT      = 15.0           # 익절 (장기 추세 수익 극대화)
 TRAILING_TRIGGER_PCT = 7.0            # 트레일링 활성화 기준
 FORCE_CLOSE_HOUR     = (15, 0)        # KR 강제 청산 시각
 US_FORCE_CLOSE_HOUR  = (6,  0)        # US 강제 청산 시각 (KST)
-MAX_POSITIONS        = 8              # 최대 동시 보유 (분산 강화: 5 → 8)
-MAX_SECTOR_POSITIONS = 3              # 동일 섹터 최대 (2 → 3)
+MAX_POSITIONS        = 5              # 최대 동시 보유 (200만원 / 40만원)
+MAX_SECTOR_POSITIONS = 2              # 동일 섹터 최대 (5종목 분산)
 KOSPI_HALT_PCT       = -2.5           # 코스피 하락 시 신규 진입 중단
 DAILY_LOSS_LIMIT_PCT = -5.0           # 일일 손실 한도
 VOLUME_MULT          = 1.2            # 거래량 배수 (sideways 기본값, 1.5 → 1.2)
@@ -155,16 +159,18 @@ def _ensure_universe():
     seen: set[str] = set(existing_tickers)
 
     for s in DEFAULT_UNIVERSE:
+        if not ENABLE_US_TRADING and s.get("market") == "US":
+            continue
         if s["ticker"] not in seen:
             to_insert.append(s)
             seen.add(s["ticker"])
 
-    # 정적 JSON에서 KOSPI 시총 상위 30 + KOSDAQ 10 자동 보강 (총 워치리스트 80~100)
+    # 정적 JSON에서 KOSPI 시총 상위 150 + KOSDAQ 50 자동 보강 (KR 퀀트 풀 확대)
     try:
         from backend.services.market_scanner import _load_static_universe
         static = _load_static_universe()
-        kospi  = [s for s in static if s.get("market_type") == "KOSPI"][:30]
-        kosdaq = [s for s in static if s.get("market_type") == "KOSDAQ"][:10]
+        kospi  = [s for s in static if s.get("market_type") == "KOSPI"][:150]
+        kosdaq = [s for s in static if s.get("market_type") == "KOSDAQ"][:50]
         for s in kospi + kosdaq:
             if s["ticker"] not in seen:
                 to_insert.append({"ticker": s["ticker"], "name": s["name"], "market": "KR"})
@@ -751,7 +757,7 @@ def _buy_stocks(target_market: str, held: set[str], pos_mult: float, regime: str
                     _notify("buy", "SYSTEM", market, 0, 0, f"API 오류로 자동매매 중단: {e}")
                     return logs
 
-            if len(logs) >= 100:
+            if len(logs) >= 250:
                 break
 
     except Exception as e:
@@ -801,9 +807,10 @@ def scan_and_trade():
             return
 
         kr_open = _is_kr_trading_hours()
-        us_open = _is_us_trading_hours()
+        us_open = _is_us_trading_hours() and ENABLE_US_TRADING
         scan_log["kr_open"] = kr_open
         scan_log["us_open"] = us_open
+        scan_log["us_trading_enabled"] = ENABLE_US_TRADING
 
         # 보유 종목 조회
         kr_holdings: list[dict] = []
@@ -953,10 +960,14 @@ def get_universe_signals() -> list[dict]:
     regime = detect_regime()
 
     system_stocks = _sb().table("autotrade_watchlist").select("ticker, name, market").execute().data or []
+    if not ENABLE_US_TRADING:
+        system_stocks = [s for s in system_stocks if (s.get("market") or "KR").upper() == "KR"]
     seen = {s["ticker"] for s in system_stocks}
     universe = [{"source": "system", **s} for s in system_stocks]
 
     journal_stocks = _sb().table("quant_stocks").select("ticker, name, market").execute().data or []
+    if not ENABLE_US_TRADING:
+        journal_stocks = [s for s in journal_stocks if (s.get("market") or "KR").upper() == "KR"]
     for s in journal_stocks:
         if s["ticker"] not in seen:
             universe.append({"source": "journal", **s})
