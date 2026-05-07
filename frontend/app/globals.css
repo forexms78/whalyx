@@ -28,30 +28,30 @@
   --toggle-bg: #1E3550;
 }
 
-/* ── 라이트 모드 ── */
+/* ── 라이트 모드 (Autopilot 풍) ── */
 [data-theme="light"] {
-  --bg: #F0F4F8;
-  --bg-2: #E8EEF4;
+  --bg: #FFFFFF;
+  --bg-2: #F7F8FA;
   --card: #FFFFFF;
-  --card-hover: #F7FAFC;
-  --border: #D1DCE8;
-  --border-light: #A8BCCC;
-  --text-primary: #0F1C2A;
-  --text-secondary: #2C4E68;
-  --text-muted: #4A7090;
-  --accent: #2A72AA;
-  --accent-dim: rgba(42,114,170,0.10);
-  --accent-glow: rgba(42,114,170,0.22);
-  --green: #0a9e6a;
-  --green-dim: rgba(10,158,106,0.10);
-  --red: #d93232;
-  --red-dim: rgba(217,50,50,0.10);
-  --gold: #C07A20;
-  --gold-dim: rgba(192,122,32,0.10);
-  --purple: #3B7AA8;
-  --orange: #C07A20;
-  --header-bg: rgba(240,244,248,0.96);
-  --toggle-bg: #D1DCE8;
+  --card-hover: #FAFBFD;
+  --border: #EAECEF;
+  --border-light: #D5D9E0;
+  --text-primary: #0A0E14;
+  --text-secondary: #4A5568;
+  --text-muted: #8B95A1;
+  --accent: #10B981;
+  --accent-dim: rgba(16,185,129,0.08);
+  --accent-glow: rgba(16,185,129,0.20);
+  --green: #10B981;
+  --green-dim: rgba(16,185,129,0.10);
+  --red: #EF4444;
+  --red-dim: rgba(239,68,68,0.10);
+  --gold: #F59E0B;
+  --gold-dim: rgba(245,158,11,0.10);
+  --purple: #6366F1;
+  --orange: #F59E0B;
+  --header-bg: rgba(255,255,255,0.92);
+  --toggle-bg: #F7F8FA;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,6 +94,11 @@ a { color: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.25s ease forwards; }
+
+@keyframes pulseLive {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
 
 /* 탭 버튼 텍스트 줄바꿈 방지 */
 .tab-btn {

@@ -1,7 +1,8 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.services.investors import get_investor
@@ -330,6 +331,35 @@ async def etf_signals():
     if cached:
         return cached
     return {"etfs": [], "us_stocks": [], "kr_stocks": [], "updated_at": None}
+
+
+@app.post("/admin/refresh-etf-signals")
+async def admin_refresh_etf_signals(
+    x_admin_token: str | None = Header(None, alias="X-Admin-Token"),
+):
+    """수동 ETF 시그널 강제 갱신 — 30분 주기 잡 사이에 즉시 캐시 재빌드.
+
+    헤더 X-Admin-Token 필수. ENV ADMIN_TOKEN 설정 안 되어 있으면 503.
+    """
+    expected = os.getenv("ADMIN_TOKEN")
+    if not expected:
+        raise HTTPException(status_code=503, detail="ADMIN_TOKEN 미설정")
+    if x_admin_token != expected:
+        raise HTTPException(status_code=401, detail="invalid admin token")
+
+    from backend.services.scheduler import refresh_etf_signals
+    await refresh_etf_signals()
+
+    cached = await _run(db_get_stale, "etf_signals")
+    return {
+        "ok": True,
+        "updated_at": cached.get("updated_at") if cached else None,
+        "count": {
+            "etfs":      len(cached.get("etfs", []))      if cached else 0,
+            "us_stocks": len(cached.get("us_stocks", [])) if cached else 0,
+            "kr_stocks": len(cached.get("kr_stocks", [])) if cached else 0,
+        },
+    }
 
 
 # ─────────────────────────────────────────────

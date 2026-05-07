@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   InvestorSummary, HotStock, RecommendedStock, CoinData,
@@ -14,6 +14,9 @@ import SkeletonCard from "@/components/SkeletonCard";
 import WhaleSignalSection from "@/components/WhaleSignalSection";
 import MarketsSection from "@/components/MarketsSection";
 import ETFStockSection from "@/components/ETFStockSection";
+import HeroSection from "@/components/HeroSection";
+import PilotsSection from "@/components/PilotsSection";
+import TopPerformersSection from "@/components/TopPerformersSection";
 import Tooltip from "@/components/Tooltip";
 import QuantTab from "@/components/quant/QuantTab";
 
@@ -70,6 +73,18 @@ export default function Home() {
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("light");
+
+  // Whalyx Top 8 평균 30일 수익률 — 13F 투자자들의 모든 holdings change_30d_pct 평균
+  const heroReturn = useMemo(() => {
+    if (investors.length === 0) return 12.4;
+    const all = investors.flatMap(inv =>
+      inv.holdings_data
+        .map(h => h.change_30d_pct)
+        .filter((v): v is number => v != null)
+    );
+    if (all.length === 0) return 12.4;
+    return all.reduce((s, v) => s + v, 0) / all.length;
+  }, [investors]);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -194,22 +209,19 @@ EFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적�
           <div className="header-top-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, textDecoration: "none", color: "inherit" }}>
               <div style={{
-                width: 34, height: 34, borderRadius: 9,
+                width: 32, height: 32, borderRadius: "50%",
                 background: "var(--accent)", display: "flex",
                 alignItems: "center", justifyContent: "center", flexShrink: 0,
               }}>
-                <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em" }}>W</span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: "#fff", letterSpacing: "-0.04em" }}>W</span>
               </div>
-              <div>
-                <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em" }}>Whalyx</span>
-                <span className="header-right" style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>Whale Tracker</span>
-              </div>
+              <span style={{ fontWeight: 800, fontSize: 19, letterSpacing: "-0.03em" }}>Whalyx</span>
             </Link>
             <button
               onClick={toggleTheme}
               style={{
-                background: "var(--card)", border: "1px solid var(--border)",
-                borderRadius: 6, padding: "5px 10px", cursor: "pointer",
+                background: "var(--bg-2)", border: "1px solid var(--border)",
+                borderRadius: 999, padding: "5px 10px", cursor: "pointer",
                 fontSize: 10, fontWeight: 700, color: "var(--text-secondary)",
                 transition: "all 0.15s", flexShrink: 0, letterSpacing: "0.06em",
               }}
@@ -238,9 +250,15 @@ EFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적�
             ))}
           </nav>
 
-          <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-              13F Filing · Live Markets · AI Insight
+          <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: "var(--green)",
+              boxShadow: "0 0 8px var(--green)",
+              animation: "pulseLive 2.4s ease-in-out infinite",
+            }} />
+            <span style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.10em", fontWeight: 700 }}>
+              LIVE
             </span>
           </div>
         </div>
@@ -319,60 +337,65 @@ EFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적�
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px" }}>
 
-        {/* 오늘의 마켓 드라이버 */}
-        <div style={{ marginBottom: 28 }}>
-          {loadingDrivers ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {[0,1,2].map(i => <SkeletonCard key={i} height={72} />)}
-            </div>
-          ) : marketDrivers.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {marketDrivers.map((d, i) => {
-                const color = d.direction === "bullish" ? "var(--green)" : d.direction === "bearish" ? "var(--red)" : "#f59e0b";
-                const tag = d.direction === "bullish" ? "강세" : d.direction === "bearish" ? "약세" : "혼조";
-                return (
-                  <a
-                    key={i}
-                    href={d.url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <div style={{
-                      background: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderLeft: `3px solid ${color}`,
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      cursor: d.url ? "pointer" : "default",
-                      transition: "border-color 0.15s",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                          color, background: `${color}18`,
-                          border: `1px solid ${color}40`,
-                          borderRadius: 4, padding: "1px 5px",
-                        }}>{tag}</span>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{d.source}</span>
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3 }}>
-                        {d.headline}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                        {d.impact}
-                      </div>
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Whale Signal */}
+        {/* Whale Signal — 메인 진입점 */}
         {activeTab === "signal" && (
           <div className="fade-in">
+            <HeroSection
+              return_pct={heroReturn}
+              onCtaClick={() => setActiveTab("etfstocks")}
+            />
+
+            {/* 오늘의 마켓 드라이버 */}
+            <div style={{ marginBottom: 28 }}>
+              {loadingDrivers ? (
+                <div className="driver-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  {[0,1,2].map(i => <SkeletonCard key={i} height={72} />)}
+                </div>
+              ) : marketDrivers.length > 0 && (
+                <div className="driver-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  {marketDrivers.map((d, i) => {
+                    const color = d.direction === "bullish" ? "var(--green)" : d.direction === "bearish" ? "var(--red)" : "var(--orange)";
+                    const tag = d.direction === "bullish" ? "강세" : d.direction === "bearish" ? "약세" : "혼조";
+                    return (
+                      <a
+                        key={i}
+                        href={d.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: "none" }}
+                      >
+                        <div style={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderLeft: `3px solid ${color}`,
+                          borderRadius: 12,
+                          padding: "14px 16px",
+                          cursor: d.url ? "pointer" : "default",
+                          transition: "border-color 0.15s",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                              color, background: `${color}18`,
+                              border: `1px solid ${color}40`,
+                              borderRadius: 4, padding: "1px 5px",
+                            }}>{tag}</span>
+                            <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{d.source}</span>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3 }}>
+                            {d.headline}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                            {d.impact}
+                          </div>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {!whaleSignal ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
                 {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} height={180} />)}
@@ -380,6 +403,10 @@ EFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적�
             ) : (
               <WhaleSignalSection data={whaleSignal} onTabChange={handleWhaleTabChange} />
             )}
+
+            <PilotsSection investors={investors} onSelect={setSelectedInvestor} />
+            <TopPerformersSection stocks={hotStocks} onSelect={setSelectedStock} />
+
             {moneyFlow && <MoneyFlowSection data={moneyFlow} korea_rates={moneyFlow.korea_rates} />}
           </div>
         )}

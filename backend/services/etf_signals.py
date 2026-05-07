@@ -55,14 +55,14 @@ ETF_LIST = [
     # ── 한국 상장 월/주간 분배형 (커버드콜·고분배) ──
     {"ticker": "441680.KS",  "name": "TIGER 미국나스닥100커버드콜(합성)", "category": "월배당 커버드콜",
      "description": "나스닥100 보유 + 콜옵션 매도로 월 1% 안팎 분배. 상승장에선 수익 일부 제한, 횡보·하락장 유리."},
-    {"ticker": "480020.KS",  "name": "ACE 미국빅테크TOP7+15%프리미엄분배", "category": "월배당 빅테크",
-     "description": "미국 빅테크 7종 + 콜옵션 매도. 연 15% 프리미엄 분배 목표. 월배당."},
-    {"ticker": "474220.KS",  "name": "TIGER 미국테크TOP10+10%프리미엄",  "category": "월배당 테크",
-     "description": "미국 테크 10종 + 콜옵션 매도. 연 10% 프리미엄 분배 목표. 월배당."},
-    {"ticker": "485540.KS",  "name": "KODEX 미국AI테크TOP10",            "category": "AI 테크",
-     "description": "미국 AI/테크 핵심 10종 추종. 성장 + 일부 분배. 비교적 신생 ETF."},
-    {"ticker": "498400.KS",  "name": "KODEX 200타겟위클리커버드콜",      "category": "주간배당 KOSPI",
-     "description": "KOSPI200 보유 + 위클리 콜옵션 매도. 주간 분배 (현금흐름 빠름). 한국 시장 노출."},
+    {"ticker": "486290.KS",  "name": "TIGER 미국나스닥100타겟데일리커버드콜", "category": "월배당 나스닥",
+     "description": "나스닥100 보유 + 데일리 콜옵션 매도. 연 15% 프리미엄 목표, 월 분배. 횡보장 유리·강세장 일부 제한."},
+    {"ticker": "493810.KS",  "name": "TIGER 미국AI빅테크10타겟데일리커버드콜", "category": "월배당 AI빅테크",
+     "description": "미국 AI 빅테크 10종 + 데일리 콜옵션 매도. 연 15% 프리미엄 목표, 월 분배. AI 사이클 + 현금흐름."},
+    {"ticker": "472150.KS",  "name": "TIGER 배당커버드콜액티브",          "category": "월배당 KOSPI",
+     "description": "코스피200 + 5% OTM 콜옵션 매도 (액티브 운용). 연 7~8% 분배율, 월 분배. 국내 시장 노출."},
+    {"ticker": "498410.KS",  "name": "KODEX 금융고배당TOP10타겟위클리커버드콜", "category": "주간배당 금융",
+     "description": "KOSPI 금융 고배당 10종 + 위클리 콜옵션 매도. 연 18% 분배 목표, 매주 분배. 금융주 + 빠른 현금흐름."},
 ]
 
 US_STOCK_LIST = [
