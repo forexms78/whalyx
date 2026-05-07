@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 type Group = "etfs" | "us_stocks" | "kr_stocks";
 
 const GROUPS: { id: Group; label: string; sub: string }[] = [
-  { id: "etfs",      label: "미장 대표 ETF", sub: "QQQ · SPY · VOO 등 10종" },
+  { id: "etfs",      label: "ETF · 배당",   sub: "미장 인덱스 · SCHD · 한국 커버드콜 17종" },
   { id: "us_stocks", label: "미국 주식",     sub: "AAPL · NVDA · TSLA 등 12종" },
   { id: "kr_stocks", label: "한국 주식",     sub: "삼성전자 · 하이닉스 등 12종" },
 ];
@@ -156,12 +156,12 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
       }}
     >
       {/* 상단: 티커 + 시그널 배지 */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-        <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: "var(--accent)", letterSpacing: "-0.01em" }}>
             {item.ticker.replace(".KS", "").replace(".KQ", "")}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500 }}>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.name}
           </div>
           <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>
@@ -182,6 +182,25 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
           {meta.label}
         </div>
       </div>
+
+      {/* ETF 설명 (한 줄, 2줄까지 표시) */}
+      {item.description && (
+        <div style={{
+          fontSize: 10.5,
+          color: "var(--text-muted)",
+          lineHeight: 1.5,
+          marginBottom: 10,
+          padding: "6px 8px",
+          background: "var(--bg-2)",
+          borderRadius: 6,
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>
+          {item.description}
+        </div>
+      )}
 
       {/* 가격 + 1년 수익률 */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>

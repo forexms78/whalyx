@@ -248,6 +248,7 @@ export interface ETFSignalItem {
   ticker: string;
   name: string;
   category: string;
+  description?: string;
   currency: string;
   current_price: number;
   rsi: number;

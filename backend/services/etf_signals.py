@@ -24,16 +24,45 @@ _session.headers.update({
 # ─────────────────────────────────────────────
 
 ETF_LIST = [
-    {"ticker": "QQQ",  "name": "Invesco QQQ Trust",            "category": "나스닥 100"},
-    {"ticker": "SPY",  "name": "SPDR S&P 500 ETF",             "category": "S&P 500"},
-    {"ticker": "VOO",  "name": "Vanguard S&P 500 ETF",         "category": "S&P 500 저비용"},
-    {"ticker": "VTI",  "name": "Vanguard Total Stock Market",  "category": "미국 전체"},
-    {"ticker": "DIA",  "name": "SPDR Dow Jones Industrial",    "category": "다우 30"},
-    {"ticker": "IWM",  "name": "iShares Russell 2000",         "category": "소형주"},
-    {"ticker": "SOXX", "name": "iShares Semiconductor ETF",    "category": "반도체"},
-    {"ticker": "XLK",  "name": "Technology Select Sector SPDR","category": "테크 섹터"},
-    {"ticker": "ARKK", "name": "ARK Innovation ETF",           "category": "혁신주"},
-    {"ticker": "GLD",  "name": "SPDR Gold Shares",             "category": "금"},
+    # ── 미장 대표 인덱스 ETF ──────────────────────────
+    {"ticker": "QQQ",  "name": "Invesco QQQ Trust",             "category": "나스닥 100",
+     "description": "나스닥100 추종. 미국 대형 기술주 100종 (AAPL·MSFT·NVDA 등). 시총 가중."},
+    {"ticker": "SPY",  "name": "SPDR S&P 500 ETF",              "category": "S&P 500",
+     "description": "S&P 500 추종. 미국 대형주 500종 시총 가중. 가장 거래량 많은 ETF."},
+    {"ticker": "VOO",  "name": "Vanguard S&P 500 ETF",          "category": "S&P 500 저비용",
+     "description": "S&P 500 추종. SPY와 동일 지수지만 수수료 0.03%로 더 저렴. 장기 투자용."},
+    {"ticker": "VTI",  "name": "Vanguard Total Stock Market",   "category": "미국 전체",
+     "description": "미국 전체 주식시장 4,000+ 종목. 대·중·소형주 모두 포함."},
+    {"ticker": "DIA",  "name": "SPDR Dow Jones Industrial",     "category": "다우 30",
+     "description": "다우존스 산업평균 30종. 미국 우량 대형주, 가격 가중 방식."},
+    {"ticker": "IWM",  "name": "iShares Russell 2000",          "category": "소형주",
+     "description": "러셀 2000 추종. 미국 중·소형주 2,000종. 경기민감 + 성장형."},
+    {"ticker": "SOXX", "name": "iShares Semiconductor ETF",     "category": "반도체",
+     "description": "미국 반도체 30종 (NVDA·AVGO·AMD·INTC 등). AI·HBM 사이클 직접 노출."},
+    {"ticker": "XLK",  "name": "Technology Select Sector SPDR", "category": "테크 섹터",
+     "description": "S&P500 정보기술 섹터. AAPL·MSFT·NVDA 비중 높음. 성장주 대표."},
+    {"ticker": "ARKK", "name": "ARK Innovation ETF",            "category": "혁신주",
+     "description": "Cathie Wood 운용. AI·바이오·핀테크·로봇 등 파괴적 혁신 기업. 변동성 높음."},
+    {"ticker": "GLD",  "name": "SPDR Gold Shares",              "category": "금",
+     "description": "금 현물 추종 ETF. 인플레이션·달러 약세·지정학 리스크 헤지."},
+
+    # ── 배당 성장 ETF ──────────────────────────────
+    {"ticker": "SCHD",       "name": "Schwab U.S. Dividend Equity ETF", "category": "분기배당 미국",
+     "description": "미국 배당 성장 ETF 대표 (수수료 0.06%). 분기 배당 + 주가 상승, 장기 투자 정석."},
+    {"ticker": "458730.KS",  "name": "TIGER 미국배당다우존스",           "category": "월배당 미국",
+     "description": "SCHD를 한국에서 월분배로 추종. 배당 성장 + 주가 안정성, 장기 적립용."},
+
+    # ── 한국 상장 월/주간 분배형 (커버드콜·고분배) ──
+    {"ticker": "441680.KS",  "name": "TIGER 미국나스닥100커버드콜(합성)", "category": "월배당 커버드콜",
+     "description": "나스닥100 보유 + 콜옵션 매도로 월 1% 안팎 분배. 상승장에선 수익 일부 제한, 횡보·하락장 유리."},
+    {"ticker": "480020.KS",  "name": "ACE 미국빅테크TOP7+15%프리미엄분배", "category": "월배당 빅테크",
+     "description": "미국 빅테크 7종 + 콜옵션 매도. 연 15% 프리미엄 분배 목표. 월배당."},
+    {"ticker": "474220.KS",  "name": "TIGER 미국테크TOP10+10%프리미엄",  "category": "월배당 테크",
+     "description": "미국 테크 10종 + 콜옵션 매도. 연 10% 프리미엄 분배 목표. 월배당."},
+    {"ticker": "485540.KS",  "name": "KODEX 미국AI테크TOP10",            "category": "AI 테크",
+     "description": "미국 AI/테크 핵심 10종 추종. 성장 + 일부 분배. 비교적 신생 ETF."},
+    {"ticker": "498400.KS",  "name": "KODEX 200타겟위클리커버드콜",      "category": "주간배당 KOSPI",
+     "description": "KOSPI200 보유 + 위클리 콜옵션 매도. 주간 분배 (현금흐름 빠름). 한국 시장 노출."},
 ]
 
 US_STOCK_LIST = [
@@ -145,6 +174,7 @@ def _calc_metrics(item: dict, hist: dict) -> dict:
         "ticker":         item["ticker"],
         "name":           item["name"],
         "category":       item["category"],
+        "description":    item.get("description", ""),
         "currency":       hist["currency"],
         "current_price":  round(current, 2),
         "rsi":            rsi,
