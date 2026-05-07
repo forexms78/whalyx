@@ -13,13 +13,13 @@ import MoneyFlowSection from "@/components/MoneyFlowSection";
 import SkeletonCard from "@/components/SkeletonCard";
 import WhaleSignalSection from "@/components/WhaleSignalSection";
 import MarketsSection from "@/components/MarketsSection";
-import NewsAISection from "@/components/NewsAISection";
+import ETFStockSection from "@/components/ETFStockSection";
 import Tooltip from "@/components/Tooltip";
 import QuantTab from "@/components/quant/QuantTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-type Tab = "signal" | "markets" | "news" | "quant";
+type Tab = "signal" | "markets" | "etfstocks" | "quant";
 type MarketTab = "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 
 const WHALE_TO_MARKET: Record<string, MarketTab> = {
@@ -153,10 +153,10 @@ export default function Home() {
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "signal",  label: "Whale Signal" },
-    { id: "markets", label: "마켓"         },
-    { id: "news",    label: "AI 뉴스"      },
-    { id: "quant",   label: "Quant"        },
+    { id: "signal",    label: "Whale Signal" },
+    { id: "markets",   label: "마켓"         },
+    { id: "etfstocks", label: "ETF·주식"     },
+    { id: "quant",     label: "Quant"        },
   ];
 
   const FED_TOOLTIP = `EFFR(실효연방기금금리)와 목표 금리의 차이
@@ -416,11 +416,9 @@ EFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적�
           </div>
         )}
 
-        {/* AI 뉴스 */}
-        {activeTab === "news" && (
-          <div className="fade-in">
-            <NewsAISection />
-          </div>
+        {/* ETF · 주식 매수매도 시그널 */}
+        {activeTab === "etfstocks" && (
+          <ETFStockSection onSelect={setSelectedStock} />
         )}
         {activeTab === "quant" && (
           <div className="fade-in">

@@ -320,6 +320,19 @@ async def news_ai():
 
 
 # ─────────────────────────────────────────────
+# ETF / 미장 / 국장 매수·매도 시그널
+# ─────────────────────────────────────────────
+
+@app.get("/etf-signals")
+async def etf_signals():
+    """ETF + 미장 + 국장 매수/매도 시그널 (DB-Only — 스케줄러 30분 주기 Gemini 배치 분석)"""
+    cached = await _run(db_get_stale, "etf_signals")
+    if cached:
+        return cached
+    return {"etfs": [], "us_stocks": [], "kr_stocks": [], "updated_at": None}
+
+
+# ─────────────────────────────────────────────
 # 한국 금리 (Korea Rates)
 # ─────────────────────────────────────────────
 

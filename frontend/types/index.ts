@@ -241,3 +241,34 @@ export interface NewsAIData {
   news: NewsAIItem[];
   updated_at: string;
 }
+
+export type ETFSignal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+
+export interface ETFSignalItem {
+  ticker: string;
+  name: string;
+  category: string;
+  currency: string;
+  current_price: number;
+  rsi: number;
+  week52_high: number;
+  week52_low: number;
+  week52_pos: number;
+  ma50: number;
+  ma200: number;
+  above_ma50: boolean;
+  above_ma200: boolean;
+  golden_cross: boolean;
+  change_1m: number | null;
+  change_3m: number | null;
+  change_1y: number;
+  signal: ETFSignal;
+  reason: string;
+}
+
+export interface ETFSignalsData {
+  etfs: ETFSignalItem[];
+  us_stocks: ETFSignalItem[];
+  kr_stocks: ETFSignalItem[];
+  updated_at: string | null;
+}

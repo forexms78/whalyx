@@ -378,6 +378,18 @@ async def refresh_news_ai():
         logger.error(f"❌ [scheduler] news_ai 갱신 실패: {e}")
 
 
+async def refresh_etf_signals():
+    """ETF/미장/국장 매수매도 시그널 (30분 주기, Gemini 배치 1회)"""
+    from backend.services.etf_signals import get_etf_signals
+    from backend.services.db_cache import db_set
+    try:
+        result = await _run_sync(get_etf_signals)
+        await _run_sync(db_set, "etf_signals", result)
+        logger.info("✅ [scheduler] etf_signals 갱신 완료")
+    except Exception as e:
+        logger.error(f"❌ [scheduler] etf_signals 갱신 실패: {e}")
+
+
 async def refresh_market_driver():
     """오늘의 마켓 드라이버 (Gemini) → Supabase 갱신"""
     from backend.services.news import fetch_top_headlines
@@ -459,6 +471,11 @@ async def warm_all_caches():
         logger.info("🔥 [scheduler] news_ai DB 미스 → 즉시 1회 실행")
         asyncio.create_task(refresh_news_ai())
 
+    es_cached = await _run_sync(db_get_stale, "etf_signals")
+    if not es_cached:
+        logger.info("🔥 [scheduler] etf_signals DB 미스 → 즉시 1회 실행")
+        asyncio.create_task(refresh_etf_signals())
+
 
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="UTC")
@@ -477,6 +494,7 @@ def create_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(refresh_hot_stock_details, "interval", hours=1,  id="hot_stock_details", max_instances=1)
     scheduler.add_job(refresh_news_ai,           "interval", hours=1,  id="news_ai",           max_instances=1)
     scheduler.add_job(refresh_market_driver,     "interval", minutes=30, id="market_driver",   max_instances=1)
+    scheduler.add_job(refresh_etf_signals,       "interval", minutes=30, id="etf_signals",     max_instances=1)
     scheduler.add_job(refresh_whale_signal,      "interval", hours=6,  id="whale_signal",      max_instances=1)
     scheduler.add_job(refresh_today_picks,       "interval", hours=6,  id="today_picks",       max_instances=1)
     # ── 텔레그램 뉴스 발송 — KST 07:00 / 12:00 / 18:00 (UTC 22:00 / 03:00 / 09:00) ──
