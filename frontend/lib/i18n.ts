@@ -14,7 +14,7 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "theme.dark":     "DARK",
     "theme.light":    "LIGHT",
 
-    "hero.label":       "Whalyx Top 8 · 30일 평균 수익률",
+    "hero.label":       "Whalyx Top 8 평균 수익률",
     "hero.description": "13F 공시 기반 슈퍼투자자 8인 포트폴리오 평균",
     "hero.cta":         "시그널 받기",
 
@@ -47,6 +47,57 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "phase.MARKDOWN": "하락",
 
     "danger.label": "DANGER · 과열 구간 신규 진입 주의",
+
+    "tag.bullish": "강세",
+    "tag.bearish": "약세",
+    "tag.mixed":   "혼조",
+
+    "lang.title.toEn": "Switch to English",
+    "lang.title.toKo": "한국어로 전환",
+
+    "data.refresh": "갱신",
+    "tooltip.refresh": "페이지 최초 로드 시점의 데이터 기준입니다.\n새로고침하면 최신 데이터를 불러옵니다.",
+    "tooltip.fed": "EFFR(실효연방기금금리)와 목표 금리의 차이\n\n연준(Fed)은 금리 '목표 범위'를 설정합니다.\n현재 목표 범위: 3.50 ~ 3.75%\n\n• 웹검색 3.75% = 목표 범위 상한선\n• 이 수치 = EFFR (실효연방기금금리)\n\nEFFR은 은행들이 실제로 하루짜리 초단기 자금을 빌릴 때 적용되는 실시간 금리로, 목표 범위 안에서 매일 변동합니다. 보통 상한선 근처에서 움직이며 일치하지 않는 것이 정상입니다.\n\n출처: NY Fed (1시간 캐시)",
+    "tooltip.fed.target": "연준 FOMC가 설정한 목표 금리 범위입니다.\n실제 EFFR은 이 범위 안에서 변동합니다.",
+    "tooltip.asset.30d":  "최근 30일 수익률 기준",
+    "tooltip.krwusd":     "원달러 환율 (KRW/USD)\n\n달러 대비 원화 가치입니다.\n수치가 높을수록 원화 약세를 의미합니다.",
+
+    "tab.stocks":      "주식",
+    "tab.crypto":      "코인",
+    "tab.realestate":  "부동산",
+    "tab.commodities": "광물",
+    "tab.bonds":       "채권",
+
+    "markets.investors.title":    "전문 투자자",
+    "markets.investors.subtitle": "SEC 13F 공개 포트폴리오 기반",
+
+    "bonds.error":  "채권 데이터를 불러오지 못했습니다",
+    "common.retry": "다시 시도",
+
+    "whale.fed_rate":          "Fed 기준금리",
+    "whale.fed_rate.target":   "(목표 3.50~3.75%)",
+    "whale.signals.title":     "자산군별 투자 신호",
+    "whale.sell_pressure":     "매도 압력",
+    "whale.attractiveness":    "투자 매력도",
+    "whale.consider_sell":     "보유 시 매도 검토",
+    "whale.global_market":     "글로벌 시장",
+    "whale.asia_market":       "아시아 시장",
+
+    "moneyflow.no_data":         "데이터 없음",
+    "moneyflow.error":           "데이터를 불러오지 못했습니다",
+    "moneyflow.normal_range":    "통상 범위",
+    "moneyflow.korea_indicators":"한국은행 주요 지표",
+    "moneyflow.flow_title":      "돈의 흐름 · Fed",
+    "moneyflow.kor_base_rate":   "KOR 기준금리",
+    "moneyflow.kor_base_rate.tooltip": "한국은행 금융통화위원회가 결정하는 정책금리. 통상 2.0~3.5% 범위에서 변동합니다.",
+    "moneyflow.us_fed_rate":     "US Fed 금리",
+    "moneyflow.treasury_3y":     "국고채 3년",
+    "moneyflow.treasury_3y.tooltip": "정부가 발행하는 3년 만기 채권. 중기 시장금리의 기준점으로 은행 대출금리·회사채 등에 영향을 줍니다.",
+    "moneyflow.treasury_10y":    "국고채 10년",
+    "moneyflow.treasury_10y.tooltip": "정부가 발행하는 10년 만기 채권. 장기 경기 전망과 인플레이션 기대치를 반영합니다. 미국 10년물과의 차이(스프레드)도 중요 지표입니다.",
+    "moneyflow.cd91":            "CD 91일",
+    "moneyflow.cd91.tooltip":    "양도성예금증서(Certificate of Deposit). 은행이 발행하는 단기 채권으로 변동금리 대출(주택담보대출 등)의 기준금리로 사용됩니다.",
+    "moneyflow.prev_day":        "전일 대비",
   },
   en: {
     "tab.signal":     "Whale Signal",
@@ -59,7 +110,7 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "theme.dark":     "DARK",
     "theme.light":    "LIGHT",
 
-    "hero.label":       "Whalyx Top 8 · 30-Day Avg Return",
+    "hero.label":       "Whalyx Top 8 Avg Return",
     "hero.description": "13F super-investor 8-portfolio average",
     "hero.cta":         "Get Signals",
 
@@ -92,5 +143,56 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "phase.MARKDOWN": "Markdown",
 
     "danger.label": "DANGER · Overheated zone, caution on entry",
+
+    "tag.bullish": "Bullish",
+    "tag.bearish": "Bearish",
+    "tag.mixed":   "Mixed",
+
+    "lang.title.toEn": "Switch to English",
+    "lang.title.toKo": "Switch to Korean",
+
+    "data.refresh": "Updated",
+    "tooltip.refresh": "Based on the data at initial page load.\nRefresh to fetch the latest.",
+    "tooltip.fed": "Difference between EFFR (Effective Federal Funds Rate) and the target rate\n\nThe Fed sets a 'target range' for the policy rate.\nCurrent target range: 3.50 ~ 3.75%\n\n• 3.75% on the web = upper bound of target range\n• This number = EFFR (Effective Federal Funds Rate)\n\nEFFR is the real-time overnight rate at which banks lend to each other, fluctuating daily within the target range — typically near the upper bound. Slight mismatches are normal.\n\nSource: NY Fed (1h cache)",
+    "tooltip.fed.target": "Target range set by the Fed FOMC.\nThe actual EFFR fluctuates within this range.",
+    "tooltip.asset.30d":  "Based on 30-day return",
+    "tooltip.krwusd":     "KRW/USD exchange rate\n\nValue of Korean won relative to the dollar.\nA higher number means a weaker won.",
+
+    "tab.stocks":      "Stocks",
+    "tab.crypto":      "Crypto",
+    "tab.realestate":  "Real Estate",
+    "tab.commodities": "Commodities",
+    "tab.bonds":       "Bonds",
+
+    "markets.investors.title":    "Super Investors",
+    "markets.investors.subtitle": "Based on SEC 13F filings",
+
+    "bonds.error":  "Failed to load bonds data",
+    "common.retry": "Retry",
+
+    "whale.fed_rate":          "Fed Rate",
+    "whale.fed_rate.target":   "(target 3.50~3.75%)",
+    "whale.signals.title":     "Asset Class Signals",
+    "whale.sell_pressure":     "Sell Pressure",
+    "whale.attractiveness":    "Attractiveness",
+    "whale.consider_sell":     "Consider selling",
+    "whale.global_market":     "Global Market",
+    "whale.asia_market":       "Asia Market",
+
+    "moneyflow.no_data":         "No data",
+    "moneyflow.error":           "Failed to load",
+    "moneyflow.normal_range":    "Normal range",
+    "moneyflow.korea_indicators":"Korea Key Rates",
+    "moneyflow.flow_title":      "Money Flow · Fed",
+    "moneyflow.kor_base_rate":   "KOR Base Rate",
+    "moneyflow.kor_base_rate.tooltip": "Policy rate set by the Bank of Korea Monetary Policy Committee. Typically fluctuates between 2.0~3.5%.",
+    "moneyflow.us_fed_rate":     "US Fed Rate",
+    "moneyflow.treasury_3y":     "KTB 3Y",
+    "moneyflow.treasury_3y.tooltip": "3-year Korean Treasury Bond. A benchmark for medium-term market rates, influencing bank loan rates and corporate bonds.",
+    "moneyflow.treasury_10y":    "KTB 10Y",
+    "moneyflow.treasury_10y.tooltip": "10-year Korean Treasury Bond. Reflects long-term growth and inflation expectations. The spread vs. US 10Y is also a key indicator.",
+    "moneyflow.cd91":            "CD 91D",
+    "moneyflow.cd91.tooltip":    "Certificate of Deposit, 91-day. Short-term bonds issued by banks; the benchmark for variable-rate loans (e.g., mortgages).",
+    "moneyflow.prev_day":        "vs prev day",
   },
 };

@@ -12,16 +12,9 @@ import CommoditySection from "@/components/CommoditySection";
 import BondsSection from "@/components/BondsSection";
 import SkeletonCard from "@/components/SkeletonCard";
 import { InvestorSummary } from "@/types";
+import { useT } from "@/contexts/LanguageContext";
 
 type MarketTab = "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
-
-const MARKET_TABS: { id: MarketTab; label: string }[] = [
-  { id: "stocks",      label: "주식"   },
-  { id: "crypto",      label: "코인"   },
-  { id: "realestate",  label: "부동산" },
-  { id: "commodities", label: "광물"   },
-  { id: "bonds",       label: "채권"   },
-];
 
 interface MarketsProps {
   // 서브탭 제어 (외부에서 주입)
@@ -57,6 +50,14 @@ interface MarketsProps {
 }
 
 export default function MarketsSection(props: MarketsProps) {
+  const { t } = useT();
+  const MARKET_TABS: { id: MarketTab; label: string }[] = [
+    { id: "stocks",      label: t("tab.stocks") },
+    { id: "crypto",      label: t("tab.crypto") },
+    { id: "realestate",  label: t("tab.realestate") },
+    { id: "commodities", label: t("tab.commodities") },
+    { id: "bonds",       label: t("tab.bonds") },
+  ];
   const activeTab = props.activeSubTab;
 
   function handleTabChange(tab: MarketTab) {
@@ -112,8 +113,8 @@ export default function MarketsSection(props: MarketsProps) {
             />
           )}
           <div style={{ marginBottom: 16, display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 18, fontWeight: 700 }}>전문 투자자</span>
-            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>SEC 13F 공개 포트폴리오 기반</span>
+            <span style={{ fontSize: 18, fontWeight: 700 }}>{t("markets.investors.title")}</span>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("markets.investors.subtitle")}</span>
           </div>
           {props.loadingInvestors ? (
             <div className="grid-investors" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
@@ -184,7 +185,7 @@ export default function MarketsSection(props: MarketsProps) {
               textAlign: "center", padding: "60px 0",
               color: "var(--text-muted)", fontSize: 13,
             }}>
-              채권 데이터를 불러오지 못했습니다.
+              {t("bonds.error")}
               <br />
               <button
                 onClick={props.onRetryBonds}
@@ -194,7 +195,7 @@ export default function MarketsSection(props: MarketsProps) {
                   border: "1px solid var(--accent-glow)", cursor: "pointer", fontSize: 12,
                 }}
               >
-                다시 시도
+                {t("common.retry")}
               </button>
             </div>
           ) : props.bondData ? (

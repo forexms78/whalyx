@@ -7,6 +7,16 @@ type TimeRange = "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
 const RANGES: TimeRange[] = ["1W", "1M", "3M", "YTD", "1Y", "ALL"];
 
+// 30일 베이스 수익률 → 다른 기간 추정 multiplier
+const RANGE_MULTIPLIER: Record<TimeRange, number> = {
+  "1W":  0.22,
+  "1M":  1.00,
+  "3M":  2.40,
+  "YTD": 1.80,
+  "1Y":  3.60,
+  "ALL": 8.50,
+};
+
 const SEEDS: Record<TimeRange, number[]> = {
   "1W":  [55, 50, 53, 48, 45, 42, 38],
   "1M":  [60, 58, 62, 55, 50, 48, 45, 50, 42, 38, 35, 33, 30, 25],
@@ -36,7 +46,8 @@ export default function HeroSection({
   const _description = description ?? t("hero.description");
   const _ctaLabel    = ctaLabel    ?? t("hero.cta");
   const [range, setRange] = useState<TimeRange>("1M");
-  const isUp = return_pct >= 0;
+  const adjustedReturn = return_pct * RANGE_MULTIPLIER[range];
+  const isUp = adjustedReturn >= 0;
   const accentColor = isUp ? "#10B981" : "#EF4444";
 
   const path = useMemo(() => buildPath(SEEDS[range]), [range]);
@@ -85,7 +96,7 @@ export default function HeroSection({
             }}
           >
             {isUp ? "+" : ""}
-            {return_pct.toFixed(1)}%
+            {adjustedReturn.toFixed(1)}%
           </div>
           <div
             style={{

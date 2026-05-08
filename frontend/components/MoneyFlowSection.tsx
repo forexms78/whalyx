@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
 import { MoneyFlowAsset, KoreaRates } from "@/types";
+import { useT } from "@/contexts/LanguageContext";
 
 // 데이터 없음 표시 + 통상 범위 툴팁
 function NullVal({ label, range }: { label: string; range: string }) {
+  const { t } = useT();
   const [show, setShow] = useState(false);
   return (
     <span
@@ -12,7 +14,7 @@ function NullVal({ label, range }: { label: string; range: string }) {
       onMouseLeave={() => setShow(false)}
     >
       <span style={{ color: "var(--text-muted)", fontSize: 14 }}>—</span>
-      <span style={{ fontSize: 10, color: "var(--text-muted)", borderBottom: "1px dotted var(--text-muted)" }}>데이터 없음</span>
+      <span style={{ fontSize: 10, color: "var(--text-muted)", borderBottom: "1px dotted var(--text-muted)" }}>{t("moneyflow.no_data")}</span>
       {show && (
         <span style={{
           position: "absolute", top: "calc(100% + 6px)", left: 0,
@@ -21,8 +23,8 @@ function NullVal({ label, range }: { label: string; range: string }) {
           whiteSpace: "nowrap", lineHeight: 1.6, pointerEvents: "none",
           boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
         }}>
-          <strong style={{ color: "#c8def0" }}>{label}</strong> 데이터를 불러오지 못했습니다.<br />
-          통상 범위: <strong style={{ color: "#5b9ec9" }}>{range}</strong>
+          <strong style={{ color: "#c8def0" }}>{label}</strong> {t("moneyflow.error")}.<br />
+          {t("moneyflow.normal_range")}: <strong style={{ color: "#5b9ec9" }}>{range}</strong>
         </span>
       )}
     </span>
@@ -71,6 +73,7 @@ interface Props {
 }
 
 export default function MoneyFlowSection({ data, korea_rates }: Props) {
+  const { t, lang } = useT();
   const { assets, rate_signal, fed_rate } = data;
   const resolvedKoreaRates = korea_rates ?? data.korea_rates;
   const signalColor = rate_signal.level === "high" ? "var(--red)" : rate_signal.level === "low" ? "var(--green)" : "var(--gold)";
@@ -98,7 +101,7 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: signalColor, marginBottom: 3 }}>
-            돈의 흐름 · Fed {fed_rate}%
+            {t("moneyflow.flow_title")} {fed_rate}%
           </div>
           <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
             {rate_signal.message}
@@ -110,58 +113,58 @@ export default function MoneyFlowSection({ data, korea_rates }: Props) {
       {resolvedKoreaRates && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-            한국은행 주요 지표
+            {t("moneyflow.korea_indicators")}
           </div>
           <div className="grid-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
             {/* 기준금리 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
-                KOR 기준금리
-                <Tip text="한국은행 금융통화위원회가 결정하는 정책금리. 통상 2.0~3.5% 범위에서 변동합니다." />
+                {t("moneyflow.kor_base_rate")}
+                <Tip text={t("moneyflow.kor_base_rate.tooltip")} />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.base_rate != null ? `${resolvedKoreaRates.base_rate.toFixed(2)}%` : <NullVal label="한국 기준금리" range="2.0~3.5%" />}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.base_rate != null ? `${resolvedKoreaRates.base_rate.toFixed(2)}%` : <NullVal label={t("moneyflow.kor_base_rate")} range="2.0~3.5%" />}</div>
             </div>
             {/* Fed 금리 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>US Fed 금리</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{t("moneyflow.us_fed_rate")}</div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>{fed_rate}%</div>
             </div>
             {/* 국고채 3년 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
-                국고채 3년
-                <Tip text="정부가 발행하는 3년 만기 채권. 중기 시장금리의 기준점으로 은행 대출금리·회사채 등에 영향을 줍니다." />
+                {t("moneyflow.treasury_3y")}
+                <Tip text={t("moneyflow.treasury_3y.tooltip")} />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_3y != null ? `${resolvedKoreaRates.treasury_3y.toFixed(2)}%` : <NullVal label="국고채 3년" range="2.5~4.5%" />}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_3y != null ? `${resolvedKoreaRates.treasury_3y.toFixed(2)}%` : <NullVal label={t("moneyflow.treasury_3y")} range="2.5~4.5%" />}</div>
             </div>
             {/* 국고채 10년 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
-                국고채 10년
-                <Tip text="정부가 발행하는 10년 만기 채권. 장기 경기 전망과 인플레이션 기대치를 반영합니다. 미국 10년물과의 차이(스프레드)도 중요 지표입니다." />
+                {t("moneyflow.treasury_10y")}
+                <Tip text={t("moneyflow.treasury_10y.tooltip")} />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_10y != null ? `${resolvedKoreaRates.treasury_10y.toFixed(2)}%` : <NullVal label="국고채 10년" range="3.0~5.0%" />}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.treasury_10y != null ? `${resolvedKoreaRates.treasury_10y.toFixed(2)}%` : <NullVal label={t("moneyflow.treasury_10y")} range="3.0~5.0%" />}</div>
             </div>
             {/* CD 91일 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center" }}>
-                CD 91일
-                <Tip text="양도성예금증서(Certificate of Deposit). 은행이 발행하는 단기 채권으로 변동금리 대출(주택담보대출 등)의 기준금리로 사용됩니다." />
+                {t("moneyflow.cd91")}
+                <Tip text={t("moneyflow.cd91.tooltip")} />
               </div>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.cd_rate != null ? `${resolvedKoreaRates.cd_rate.toFixed(2)}%` : <NullVal label="CD 91일" range="3.0~4.5%" />}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{resolvedKoreaRates.cd_rate != null ? `${resolvedKoreaRates.cd_rate.toFixed(2)}%` : <NullVal label={t("moneyflow.cd91")} range="3.0~4.5%" />}</div>
             </div>
             {/* 원/달러 환율 — 변동성 포함 */}
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>KRW/USD</div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>
-                {resolvedKoreaRates.usd_krw != null ? `${resolvedKoreaRates.usd_krw.toLocaleString("ko-KR")}원` : "—"}
+                {resolvedKoreaRates.usd_krw != null ? `${resolvedKoreaRates.usd_krw.toLocaleString(lang === "ko" ? "ko-KR" : "en-US")}${lang === "ko" ? "원" : ""}` : "—"}
               </div>
               {resolvedKoreaRates.usd_krw_change_1d != null && (
                 <div style={{
                   fontSize: 11, fontWeight: 600, marginTop: 3,
                   color: resolvedKoreaRates.usd_krw_change_1d >= 0 ? "var(--red)" : "var(--green)",
                 }}>
-                  {resolvedKoreaRates.usd_krw_change_1d >= 0 ? "▲" : "▼"} {Math.abs(resolvedKoreaRates.usd_krw_change_1d).toFixed(2)}% 전일 대비
+                  {resolvedKoreaRates.usd_krw_change_1d >= 0 ? "▲" : "▼"} {Math.abs(resolvedKoreaRates.usd_krw_change_1d).toFixed(2)}% {t("moneyflow.prev_day")}
                 </div>
               )}
             </div>

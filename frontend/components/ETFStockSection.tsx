@@ -23,11 +23,24 @@ const PHASE_META: Record<TrendPhase, { arrow: string; color: string }> = {
   MARKDOWN: { arrow: "↘", color: "var(--red)" },
 };
 
-function fmtPrice(item: ETFSignalItem): string {
+function fmtPrice(item: ETFSignalItem, usdKrw?: number): { main: string; sub: string | null } {
   if (item.currency === "KRW") {
-    return `₩${Math.round(item.current_price).toLocaleString("ko-KR")}`;
+    const krw = Math.round(item.current_price);
+    const usd = usdKrw ? item.current_price / usdKrw : null;
+    return {
+      main: `₩${krw.toLocaleString("ko-KR")}`,
+      sub:  usd != null ? `$${usd.toFixed(2)}` : null,
+    };
   }
-  return `$${item.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const usd = item.current_price;
+  const krw = usdKrw ? Math.round(usd * usdKrw) : null;
+  if (krw == null) {
+    return { main: `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, sub: null };
+  }
+  return {
+    main: `₩${krw.toLocaleString("ko-KR")}`,
+    sub:  `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+  };
 }
 
 function chgColor(v: number | null | undefined): string {
@@ -42,9 +55,10 @@ function fmtChg(v: number | null | undefined): string {
 
 interface Props {
   onSelect: (ticker: string) => void;
+  usdKrw?: number;
 }
 
-export default function ETFStockSection({ onSelect }: Props) {
+export default function ETFStockSection({ onSelect, usdKrw }: Props) {
   const { t, lang } = useT();
   const [data, setData] = useState<ETFSignalsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,7 +140,7 @@ export default function ETFStockSection({ onSelect }: Props) {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-          {items.map(item => <SignalCard key={item.ticker} item={item} onSelect={onSelect} />)}
+          {items.map(item => <SignalCard key={item.ticker} item={item} onSelect={onSelect} usdKrw={usdKrw} />)}
         </div>
       )}
     </div>
@@ -134,11 +148,12 @@ export default function ETFStockSection({ onSelect }: Props) {
 }
 
 
-function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: string) => void }) {
+function SignalCard({ item, onSelect, usdKrw }: { item: ETFSignalItem; onSelect: (t: string) => void; usdKrw?: number }) {
   const { t } = useT();
   const meta = SIGNAL_META[item.signal];
   const phase = PHASE_META[item.trend_phase ?? "SIDEWAYS"];
   const isDanger = item.safety === "DANGER";
+  const price = fmtPrice(item, usdKrw);
 
   return (
     <button
@@ -186,11 +201,16 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 19, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          {fmtPrice(item)}
+          {price.main}
         </span>
-        <span style={{ fontSize: 12, color: chgColor(item.change_1y), fontWeight: 700 }}>
+        {price.sub && (
+          <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>
+            {price.sub}
+          </span>
+        )}
+        <span style={{ fontSize: 12, color: chgColor(item.change_1y), fontWeight: 700, marginLeft: "auto" }}>
           {fmtChg(item.change_1y)} <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>1Y</span>
         </span>
       </div>

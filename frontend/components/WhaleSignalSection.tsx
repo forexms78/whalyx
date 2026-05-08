@@ -1,6 +1,7 @@
 "use client";
 import { PieChart, Pie, Cell } from "recharts";
 import { WhaleSignal, NewsItem } from "@/types";
+import { useT } from "@/contexts/LanguageContext";
 
 type Tab = "signal" | "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 
@@ -139,6 +140,7 @@ export default function WhaleSignalSection({
   data: WhaleSignal;
   onTabChange?: (tab: string) => void;
 }) {
+  const { t, lang } = useT();
   // 전체 평균 점수
   const avgScore = data.signals.length
     ? Math.round(data.signals.reduce((s, a) => s + a.score, 0) / data.signals.length)
@@ -183,11 +185,11 @@ export default function WhaleSignalSection({
               Whale Signal
             </span>
             <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              Fed 기준금리 <strong style={{ color: "var(--text-secondary)" }}>{data.fed_rate}%</strong>
-              <span style={{ marginLeft: 4, color: "var(--text-muted)" }}>(목표 3.50~3.75%)</span>
+              {t("whale.fed_rate")} <strong style={{ color: "var(--text-secondary)" }}>{data.fed_rate}%</strong>
+              <span style={{ marginLeft: 4, color: "var(--text-muted)" }}>{t("whale.fed_rate.target")}</span>
             </span>
             <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              {data.updated_at ? new Date(data.updated_at).toLocaleString("ko-KR") : ""}
+              {data.updated_at ? new Date(data.updated_at).toLocaleString(lang === "ko" ? "ko-KR" : "en-US") : ""}
             </span>
           </div>
           {/* 헤드라인 */}
@@ -219,7 +221,7 @@ export default function WhaleSignalSection({
 
       {/* ── 자산군별 신호 카드 ── */}
       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-        자산군별 투자 신호
+        {t("whale.signals.title")}
       </div>
       <div className="grid-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
         {data.signals.map((s) => {
@@ -257,7 +259,7 @@ export default function WhaleSignalSection({
               {/* 점수 바 */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-                  <span>{s.label === "Super Sell" ? "매도 압력" : "투자 매력도"}</span>
+                  <span>{s.label === "Super Sell" ? t("whale.sell_pressure") : t("whale.attractiveness")}</span>
                   <span style={{ color: s.color, fontWeight: 600 }}>{s.score}</span>
                 </div>
                 <div style={{ height: 5, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
@@ -278,7 +280,7 @@ export default function WhaleSignalSection({
               {/* Super Sell: 매도 경고 */}
               {s.label === "Super Sell" && s.sell_warns && s.sell_warns.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 10, color: "#ef4444", marginBottom: 4, fontWeight: 600 }}>보유 시 매도 검토</div>
+                  <div style={{ fontSize: 10, color: "#ef4444", marginBottom: 4, fontWeight: 600 }}>{t("whale.consider_sell")}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                     {s.sell_warns.map(w => (
                       <span key={w} style={{
@@ -312,11 +314,11 @@ export default function WhaleSignalSection({
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 8 }}>
           {/* 글로벌 시장 뉴스 */}
           {data.market_news && data.market_news.length > 0 && (
-            <NewsColumn title="글로벌 시장" news={data.market_news} />
+            <NewsColumn title={t("whale.global_market")} news={data.market_news} />
           )}
           {/* 아시아/한국 시장 뉴스 */}
           {data.asia_news && data.asia_news.length > 0 && (
-            <NewsColumn title="아시아 시장" news={data.asia_news} />
+            <NewsColumn title={t("whale.asia_market")} news={data.asia_news} />
           )}
         </div>
       )}
