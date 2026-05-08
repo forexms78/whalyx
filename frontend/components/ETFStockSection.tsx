@@ -3,23 +3,24 @@
 import { useEffect, useState } from "react";
 import { ETFSignalsData, ETFSignalItem, ETFSignal, TrendPhase } from "@/types";
 import SkeletonCard from "@/components/SkeletonCard";
+import { useT } from "@/contexts/LanguageContext";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 type Group = "etfs" | "us_stocks" | "kr_stocks";
 
-const GROUPS: { id: Group; label: string; sub: string }[] = [
-  { id: "etfs",      label: "ETF · 배당",   sub: "미장 인덱스 · SCHD · 한국 커버드콜 17종" },
-  { id: "us_stocks", label: "미국 주식",     sub: "AAPL · NVDA · TSLA 등 12종" },
-  { id: "kr_stocks", label: "한국 주식",     sub: "삼성전자 · 하이닉스 등 12종" },
-];
+const SIGNAL_META: Record<ETFSignal, { color: string; bg: string }> = {
+  STRONG_BUY:  { color: "#059669", bg: "#05966918" },
+  BUY:         { color: "#10b981", bg: "#10b98118" },
+  HOLD:        { color: "#6b7280", bg: "#6b728018" },
+  SELL:        { color: "#f59e0b", bg: "#f59e0b18" },
+  STRONG_SELL: { color: "#ef4444", bg: "#ef444418" },
+};
 
-const SIGNAL_META: Record<ETFSignal, { label: string; color: string; bg: string }> = {
-  STRONG_BUY:  { label: "강력 매수", color: "#059669", bg: "#05966918" },
-  BUY:         { label: "매수",      color: "#10b981", bg: "#10b98118" },
-  HOLD:        { label: "관망",      color: "#6b7280", bg: "#6b728018" },
-  SELL:        { label: "매도",      color: "#f59e0b", bg: "#f59e0b18" },
-  STRONG_SELL: { label: "강력 매도", color: "#ef4444", bg: "#ef444418" },
+const PHASE_META: Record<TrendPhase, { arrow: string; color: string }> = {
+  MARKUP:   { arrow: "↗", color: "var(--green)" },
+  SIDEWAYS: { arrow: "→", color: "var(--text-muted)" },
+  MARKDOWN: { arrow: "↘", color: "var(--red)" },
 };
 
 function fmtPrice(item: ETFSignalItem): string {
@@ -44,9 +45,16 @@ interface Props {
 }
 
 export default function ETFStockSection({ onSelect }: Props) {
+  const { t, lang } = useT();
   const [data, setData] = useState<ETFSignalsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState<Group>("etfs");
+
+  const GROUPS: { id: Group; label: string; sub: string }[] = [
+    { id: "etfs",      label: t("etf.group.etfs"), sub: t("etf.group.etfs.sub") },
+    { id: "us_stocks", label: t("etf.group.us"),   sub: t("etf.group.us.sub")   },
+    { id: "kr_stocks", label: t("etf.group.kr"),   sub: t("etf.group.kr.sub")   },
+  ];
 
   useEffect(() => {
     fetch(`${API}/etf-signals`)
@@ -60,25 +68,24 @@ export default function ETFStockSection({ onSelect }: Props) {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>
-            매수·매도 타이밍 시그널
+            {t("etf.title")}
           </span>
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            RSI · 52주 위치 · 이동평균 · AI 종합 판정
+            {t("etf.subtitle")}
           </span>
         </div>
         <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>
-          기술 지표 5종 + Gemini 2.5 Flash 종합 분석. 30분마다 갱신.
+          {t("etf.description")}
           {data?.updated_at && (
             <span style={{ marginLeft: 8, color: "var(--text-muted)" }}>
-              · 갱신 {new Date(data.updated_at).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              · {t("etf.updated")} {new Date(data.updated_at).toLocaleString(lang === "ko" ? "ko-KR" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
         </div>
       </div>
 
-      {/* 그룹 토글 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {GROUPS.map(g => (
           <button
@@ -105,7 +112,6 @@ export default function ETFStockSection({ onSelect }: Props) {
         ))}
       </div>
 
-      {/* 카드 그리드 */}
       {loading || !data ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
           {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} height={210} />)}
@@ -116,7 +122,7 @@ export default function ETFStockSection({ onSelect }: Props) {
           color: "var(--text-muted)", fontSize: 13,
           background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
         }}>
-          시그널 데이터를 준비 중입니다. 잠시 후 새로고침해 주세요.
+          {t("etf.empty")}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
@@ -128,14 +134,8 @@ export default function ETFStockSection({ onSelect }: Props) {
 }
 
 
-const PHASE_META: Record<TrendPhase, { label: string; arrow: string; color: string }> = {
-  MARKUP:   { label: "상승", arrow: "↗", color: "var(--green)" },
-  SIDEWAYS: { label: "횡보", arrow: "→", color: "var(--text-muted)" },
-  MARKDOWN: { label: "하락", arrow: "↘", color: "var(--red)" },
-};
-
-
 function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: string) => void }) {
+  const { t } = useT();
   const meta = SIGNAL_META[item.signal];
   const phase = PHASE_META[item.trend_phase ?? "SIDEWAYS"];
   const isDanger = item.safety === "DANGER";
@@ -182,7 +182,7 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
           padding: "3px 10px",
           flexShrink: 0,
         }}>
-          {meta.label}
+          {t(`signal.${item.signal}`)}
         </div>
       </div>
 
@@ -199,12 +199,14 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
         <span>RSI <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{Math.round(item.rsi)}</span></span>
         <span>52w <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{Math.round(item.week52_pos)}%</span></span>
         <span>MA200 <span style={{ color: item.above_ma200 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{item.above_ma200 ? "↑" : "↓"}</span></span>
-        <span style={{ color: phase.color, fontWeight: 700 }}>{phase.arrow} {phase.label}</span>
+        <span style={{ color: phase.color, fontWeight: 700 }}>
+          {phase.arrow} {t(`phase.${item.trend_phase ?? "SIDEWAYS"}`)}
+        </span>
       </div>
 
       {isDanger && (
         <div style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, letterSpacing: "0.04em", marginTop: 8 }}>
-          DANGER · 과열 구간 신규 진입 주의
+          {t("danger.label")}
         </div>
       )}
 

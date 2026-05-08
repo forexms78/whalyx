@@ -1,6 +1,7 @@
 "use client";
 
 import { HotStock } from "@/types";
+import { useT } from "@/contexts/LanguageContext";
 
 interface Props {
   stocks: HotStock[];
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function TopPerformersSection({ stocks, onSelect }: Props) {
+  const { t } = useT();
   const sorted = [...stocks]
     .filter((s) => s.change_30d_pct != null)
     .sort((a, b) => (b.change_30d_pct ?? 0) - (a.change_30d_pct ?? 0))
@@ -29,10 +31,10 @@ export default function TopPerformersSection({ stocks, onSelect }: Props) {
       >
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>
-            Top Performers
+            {t("topperf.title")}
           </div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-            13F 보유 종목 중 최근 30일 수익률 상위
+            {t("topperf.subtitle")}
           </div>
         </div>
       </div>

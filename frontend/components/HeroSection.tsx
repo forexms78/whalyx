@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/contexts/LanguageContext";
 
 type TimeRange = "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
@@ -25,11 +26,15 @@ interface Props {
 
 export default function HeroSection({
   return_pct = 12.4,
-  label = "Whalyx Top 8 · 30일 평균 수익률",
-  description = "13F 공시 기반 슈퍼투자자 8인 포트폴리오 평균",
+  label,
+  description,
   onCtaClick,
-  ctaLabel = "시그널 받기",
+  ctaLabel,
 }: Props) {
+  const { t } = useT();
+  const _label       = label       ?? t("hero.label");
+  const _description = description ?? t("hero.description");
+  const _ctaLabel    = ctaLabel    ?? t("hero.cta");
   const [range, setRange] = useState<TimeRange>("1M");
   const isUp = return_pct >= 0;
   const accentColor = isUp ? "#10B981" : "#EF4444";
@@ -67,7 +72,7 @@ export default function HeroSection({
               marginBottom: 8,
             }}
           >
-            {label}
+            {_label}
           </div>
           <div
             style={{
@@ -89,7 +94,7 @@ export default function HeroSection({
               fontWeight: 500,
             }}
           >
-            {description} · {range} 기준
+            {_description} · {range}
           </div>
         </div>
 
@@ -114,7 +119,7 @@ export default function HeroSection({
             e.currentTarget.style.transform = "scale(1)";
           }}
         >
-          {ctaLabel} →
+          {_ctaLabel} →
         </button>
       </div>
 

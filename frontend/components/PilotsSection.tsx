@@ -1,6 +1,7 @@
 "use client";
 
 import { InvestorSummary } from "@/types";
+import { useT } from "@/contexts/LanguageContext";
 
 interface Props {
   investors: InvestorSummary[];
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function PilotsSection({ investors, onSelect }: Props) {
+  const { t } = useT();
   if (investors.length === 0) return null;
 
   return (
@@ -24,10 +26,10 @@ export default function PilotsSection({ investors, onSelect }: Props) {
       >
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em" }}>
-            슈퍼투자자 8인
+            {t("pilots.title")}
           </div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-            13F 공시 기반 — 카드 클릭 시 포트폴리오 공개
+            {t("pilots.subtitle")}
           </div>
         </div>
       </div>
