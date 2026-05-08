@@ -1,0 +1,25 @@
+name: Keep Render alive
+
+# Render 무료 플랜은 15분 idle 후 sleep — 10분 간격으로 health endpoint를
+# 호출해 cold start (첫 진입자 30~60초 대기)을 예방한다.
+#
+# GitHub Actions cron은 트래픽 많은 시간엔 5~10분 지연될 수 있으므로
+# 안전 마진을 두고 10분 주기로 설정. 5분 미만 주기는 GitHub이 거부한다.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Whalyx API health endpoint
+        run: |
+          # cold start 시 응답까지 최대 90초 — --max-time으로 대기
+          # 실패해도 workflow는 성공 처리(|| true) — alarm 노이즈 방지
+          curl -fsS --max-time 90 https://whalyx.onrender.com/ \
+            && echo "ping ok @ $(date -u +%FT%TZ)" \
+            || echo "ping failed @ $(date -u +%FT%TZ) — Render 일시 다운 가능"
