@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -7,8 +8,6 @@ import {
   RealEstateIndicator, MoneyFlowAsset, NewsItem, CommodityData,
   WhaleSignal, KoreaRates, BondData, ETFSignalsData,
 } from "@/types";
-import InvestorModal from "@/components/InvestorModal";
-import StockModal from "@/components/StockModal";
 import MoneyFlowSection from "@/components/MoneyFlowSection";
 import SkeletonCard from "@/components/SkeletonCard";
 import WhaleSignalSection from "@/components/WhaleSignalSection";
@@ -18,8 +17,12 @@ import HeroSection from "@/components/HeroSection";
 import PilotsSection from "@/components/PilotsSection";
 import TopPerformersSection from "@/components/TopPerformersSection";
 import Tooltip from "@/components/Tooltip";
-import QuantTab from "@/components/quant/QuantTab";
 import { useT } from "@/contexts/LanguageContext";
+
+// 클릭 시점에만 chunk 로드 — 초기 번들 크기 축소
+const InvestorModal = dynamic(() => import("@/components/InvestorModal"));
+const StockModal    = dynamic(() => import("@/components/StockModal"));
+const QuantTab      = dynamic(() => import("@/components/quant/QuantTab"));
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 

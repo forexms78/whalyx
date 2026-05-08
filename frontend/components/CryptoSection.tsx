@@ -73,7 +73,7 @@ export default function CryptoSection({ coins, news, usd_krw }: Props) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {coin.image && (
-                    <img src={coin.image} alt={coin.symbol} width={32} height={32} style={{ borderRadius: "50%" }} />
+                    <img src={coin.image} alt={coin.symbol} width={32} height={32} loading="lazy" decoding="async" style={{ borderRadius: "50%" }} />
                   )}
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{coin.symbol}</div>

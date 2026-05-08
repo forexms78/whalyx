@@ -355,6 +355,8 @@ function NewsColumn({ title, news }: { title: string; news: NewsItem[] }) {
               <img
                 src={item.image_url}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 style={{ width: 56, height: 56, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
               />

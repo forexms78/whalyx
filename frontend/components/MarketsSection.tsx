@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import {
   HotStock, RecommendedStock, CoinData, RealEstateIndicator,
   CommodityData, NewsItem, BondData, KoreaRates,
@@ -6,13 +7,15 @@ import {
 import HotStocksBar from "@/components/HotStocksBar";
 import RecommendSection from "@/components/RecommendSection";
 import InvestorCard from "@/components/InvestorCard";
-import CryptoSection from "@/components/CryptoSection";
-import RealEstateSection from "@/components/RealEstateSection";
-import CommoditySection from "@/components/CommoditySection";
-import BondsSection from "@/components/BondsSection";
 import SkeletonCard from "@/components/SkeletonCard";
 import { InvestorSummary } from "@/types";
 import { useT } from "@/contexts/LanguageContext";
+
+// 서브 탭 클릭 시점에만 chunk 로드
+const CryptoSection     = dynamic(() => import("@/components/CryptoSection"));
+const RealEstateSection = dynamic(() => import("@/components/RealEstateSection"));
+const CommoditySection  = dynamic(() => import("@/components/CommoditySection"));
+const BondsSection      = dynamic(() => import("@/components/BondsSection"));
 
 type MarketTab = "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 

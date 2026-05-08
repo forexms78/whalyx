@@ -31,6 +31,8 @@ export default function NewsCard({ news }: Props) {
             <img
               src={news.image_url}
               alt=""
+              loading="lazy"
+              decoding="async"
               style={{ width: 80, height: 80, objectFit: "cover", display: "block" }}
               onError={() => setImgError(true)}
             />
