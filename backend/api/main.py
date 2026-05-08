@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Header
@@ -333,19 +334,33 @@ async def etf_signals():
     return {"etfs": [], "us_stocks": [], "kr_stocks": [], "updated_at": None}
 
 
+_LAST_ADMIN_REFRESH_AT: float = 0.0
+_ADMIN_REFRESH_COOLDOWN_SEC = 60.0
+
+
 @app.post("/admin/refresh-etf-signals")
 async def admin_refresh_etf_signals(
     x_admin_token: str | None = Header(None, alias="X-Admin-Token"),
 ):
     """수동 ETF 시그널 강제 갱신 — 30분 주기 잡 사이에 즉시 캐시 재빌드.
 
-    헤더 X-Admin-Token 필수. ENV ADMIN_TOKEN 설정 안 되어 있으면 503.
+    인증:
+      - `ADMIN_TOKEN` ENV 설정 시: `X-Admin-Token` 헤더 값 일치 필수
+      - 미설정 시: 60초 쿨다운만 적용 (남용 방지)
     """
+    global _LAST_ADMIN_REFRESH_AT
+
     expected = os.getenv("ADMIN_TOKEN")
-    if not expected:
-        raise HTTPException(status_code=503, detail="ADMIN_TOKEN 미설정")
-    if x_admin_token != expected:
-        raise HTTPException(status_code=401, detail="invalid admin token")
+    if expected:
+        if x_admin_token != expected:
+            raise HTTPException(status_code=401, detail="invalid admin token")
+    else:
+        now = time.time()
+        elapsed = now - _LAST_ADMIN_REFRESH_AT
+        if elapsed < _ADMIN_REFRESH_COOLDOWN_SEC:
+            wait = int(_ADMIN_REFRESH_COOLDOWN_SEC - elapsed)
+            raise HTTPException(status_code=429, detail=f"cooldown {wait}s remaining")
+        _LAST_ADMIN_REFRESH_AT = now
 
     from backend.services.scheduler import refresh_etf_signals
     await refresh_etf_signals()
