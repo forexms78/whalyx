@@ -14,6 +14,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" data-theme="light" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://whalyx.onrender.com" />
+        <link rel="dns-prefetch" href="https://whalyx.onrender.com" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+      </head>
       <body className="min-h-screen">
         <LanguageProvider>{children}</LanguageProvider>
       </body>

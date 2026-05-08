@@ -56,12 +56,13 @@ function fmtChg(v: number | null | undefined): string {
 interface Props {
   onSelect: (ticker: string) => void;
   usdKrw?: number;
+  data?: ETFSignalsData | null;
 }
 
-export default function ETFStockSection({ onSelect, usdKrw }: Props) {
+export default function ETFStockSection({ onSelect, usdKrw, data: dataProp }: Props) {
   const { t, lang } = useT();
-  const [data, setData] = useState<ETFSignalsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ETFSignalsData | null>(dataProp ?? null);
+  const [loading, setLoading] = useState(!dataProp);
   const [activeGroup, setActiveGroup] = useState<Group>("etfs");
 
   const GROUPS: { id: Group; label: string; sub: string }[] = [
@@ -70,12 +71,20 @@ export default function ETFStockSection({ onSelect, usdKrw }: Props) {
     { id: "kr_stocks", label: t("etf.group.kr"),   sub: t("etf.group.kr.sub")   },
   ];
 
+  // dashboard에서 prefetch한 데이터를 prop으로 받으면 즉시 표시.
+  // prop 없을 때만 fallback fetch.
   useEffect(() => {
+    if (dataProp) {
+      setData(dataProp);
+      setLoading(false);
+      return;
+    }
+    if (data) return;
     fetch(`${API}/etf-signals`)
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false));
-  }, []);
+  }, [dataProp]);
 
   const items: ETFSignalItem[] = data ? data[activeGroup] : [];
 

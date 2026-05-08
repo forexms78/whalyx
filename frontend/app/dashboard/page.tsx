@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   InvestorSummary, HotStock, RecommendedStock, CoinData,
   RealEstateIndicator, MoneyFlowAsset, NewsItem, CommodityData,
-  WhaleSignal, KoreaRates, BondData,
+  WhaleSignal, KoreaRates, BondData, ETFSignalsData,
 } from "@/types";
 import InvestorModal from "@/components/InvestorModal";
 import StockModal from "@/components/StockModal";
@@ -52,6 +52,7 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<{ buy: RecommendedStock[]; sell: RecommendedStock[] } | null>(null);
   const [moneyFlow, setMoneyFlow] = useState<{ assets: MoneyFlowAsset[]; rate_signal: { level: string; message: string }; fed_rate: number; korea_rates?: KoreaRates } | null>(null);
   const [whaleSignal, setWhaleSignal] = useState<WhaleSignal | null>(null);
+  const [etfSignals, setEtfSignals] = useState<ETFSignalsData | null>(null);
   const [loadingInvestors, setLoadingInvestors] = useState(true);
   const [initialFetchedAt, setInitialFetchedAt] = useState<Date | null>(null);
   const [marketDrivers, setMarketDrivers] = useState<{ headline: string; impact: string; direction: string; url?: string; source?: string }[]>([]);
@@ -102,7 +103,7 @@ export default function Home() {
       .finally(() => setLoadingDrivers(false));
   }, []);
 
-  // 초기 로드
+  // 초기 로드 — ETF·주식 시그널까지 6개 병렬 prefetch
   useEffect(() => {
     Promise.all([
       fetch(`${API}/investors`).then(r => r.json()),
@@ -110,13 +111,17 @@ export default function Home() {
       fetch(`${API}/stocks/recommendations`).then(r => r.json()),
       fetch(`${API}/money-flow`).then(r => r.json()),
       fetch(`${API}/whale-signal`).then(r => r.json()),
-    ]).then(([invData, stockData, recData, flowData, signalData]) => {
+      fetch(`${API}/etf-signals`).then(r => r.json()),
+    ]).then(([invData, stockData, recData, flowData, signalData, etfData]) => {
       setInvestors(invData.investors || []);
       setHotStocks(stockData.stocks || []);
       setRecommendations(recData);
       setMoneyFlow(flowData);
       if (signalData?.signals && Array.isArray(signalData.signals)) {
         setWhaleSignal(signalData);
+      }
+      if (etfData && Array.isArray(etfData.etfs)) {
+        setEtfSignals(etfData);
       }
       setInitialFetchedAt(new Date());
     }).finally(() => setLoadingInvestors(false));
@@ -453,11 +458,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* ETF · 주식 매수매도 시그널 */}
+        {/* ETF · 주식 매수매도 시그널 (prefetched) */}
         {activeTab === "etfstocks" && (
           <ETFStockSection
             onSelect={setSelectedStock}
             usdKrw={moneyFlow?.korea_rates?.usd_krw ?? undefined}
+            data={etfSignals}
           />
         )}
         {activeTab === "quant" && (
