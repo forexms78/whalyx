@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ETFSignalsData, ETFSignalItem, ETFSignal } from "@/types";
+import { ETFSignalsData, ETFSignalItem, ETFSignal, TrendPhase } from "@/types";
 import SkeletonCard from "@/components/SkeletonCard";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -128,8 +128,17 @@ export default function ETFStockSection({ onSelect }: Props) {
 }
 
 
+const PHASE_META: Record<TrendPhase, { label: string; arrow: string; color: string }> = {
+  MARKUP:   { label: "상승", arrow: "↗", color: "var(--green)" },
+  SIDEWAYS: { label: "횡보", arrow: "→", color: "var(--text-muted)" },
+  MARKDOWN: { label: "하락", arrow: "↘", color: "var(--red)" },
+};
+
+
 function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: string) => void }) {
   const meta = SIGNAL_META[item.signal];
+  const phase = PHASE_META[item.trend_phase ?? "SIDEWAYS"];
+  const isDanger = item.safety === "DANGER";
 
   return (
     <button
@@ -137,8 +146,7 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
       style={{
         background: "var(--card)",
         border: "1px solid var(--border)",
-        borderLeft: `3px solid ${meta.color}`,
-        borderRadius: 12,
+        borderRadius: 14,
         padding: 16,
         cursor: "pointer",
         textAlign: "left",
@@ -146,26 +154,22 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = "var(--card-hover)";
+        el.style.borderColor = meta.color + "60";
         el.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = "var(--card)";
+        el.style.borderColor = "var(--border)";
         el.style.transform = "translateY(0)";
       }}
     >
-      {/* 상단: 티커 + 시그널 배지 */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, gap: 10 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--accent)", letterSpacing: "-0.01em" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
             {item.ticker.replace(".KS", "").replace(".KQ", "")}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.name}
-          </div>
-          <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>
-            {item.category}
           </div>
         </div>
         <div style={{
@@ -174,89 +178,50 @@ function SignalCard({ item, onSelect }: { item: ETFSignalItem; onSelect: (t: str
           letterSpacing: "0.04em",
           color: meta.color,
           background: meta.bg,
-          border: `1px solid ${meta.color}40`,
-          borderRadius: 6,
-          padding: "3px 8px",
+          borderRadius: 999,
+          padding: "3px 10px",
           flexShrink: 0,
         }}>
           {meta.label}
         </div>
       </div>
 
-      {/* ETF 설명 (한 줄, 2줄까지 표시) */}
-      {item.description && (
-        <div style={{
-          fontSize: 10.5,
-          color: "var(--text-muted)",
-          lineHeight: 1.5,
-          marginBottom: 10,
-          padding: "6px 8px",
-          background: "var(--bg-2)",
-          borderRadius: 6,
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}>
-          {item.description}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 19, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+          {fmtPrice(item)}
+        </span>
+        <span style={{ fontSize: 12, color: chgColor(item.change_1y), fontWeight: 700 }}>
+          {fmtChg(item.change_1y)} <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>1Y</span>
+        </span>
+      </div>
+
+      <div style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", gap: 10, flexWrap: "wrap", lineHeight: 1.5 }}>
+        <span>RSI <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{Math.round(item.rsi)}</span></span>
+        <span>52w <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>{Math.round(item.week52_pos)}%</span></span>
+        <span>MA200 <span style={{ color: item.above_ma200 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{item.above_ma200 ? "↑" : "↓"}</span></span>
+        <span style={{ color: phase.color, fontWeight: 700 }}>{phase.arrow} {phase.label}</span>
+      </div>
+
+      {isDanger && (
+        <div style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, letterSpacing: "0.04em", marginTop: 8 }}>
+          DANGER · 과열 구간 신규 진입 주의
         </div>
       )}
 
-      {/* 가격 + 1년 수익률 */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)" }}>
-          {fmtPrice(item)}
-        </span>
-        <span style={{ fontSize: 11, color: chgColor(item.change_1y), fontWeight: 600 }}>
-          1Y {fmtChg(item.change_1y)}
-        </span>
-      </div>
-
-      {/* 지표 그리드 */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px",
-        marginBottom: 10, fontSize: 11,
-      }}>
-        <Indicator label="RSI(14)" value={item.rsi.toFixed(1)} color={
-          item.rsi <= 30 ? "var(--green)" : item.rsi >= 70 ? "var(--red)" : "var(--text-primary)"
-        } />
-        <Indicator label="52주 위치" value={`${item.week52_pos.toFixed(0)}%`} color={
-          item.week52_pos <= 30 ? "var(--green)" : item.week52_pos >= 90 ? "var(--red)" : "var(--text-primary)"
-        } />
-        <Indicator label="MA50" value={item.above_ma50 ? "위" : "아래"} color={
-          item.above_ma50 ? "var(--green)" : "var(--red)"
-        } />
-        <Indicator label="MA200" value={item.above_ma200 ? "위" : "아래"} color={
-          item.above_ma200 ? "var(--green)" : "var(--red)"
-        } />
-        <Indicator label="1M" value={fmtChg(item.change_1m)} color={chgColor(item.change_1m)} />
-        <Indicator label="3M" value={fmtChg(item.change_3m)} color={chgColor(item.change_3m)} />
-      </div>
-
-      {/* AI 한 줄 근거 */}
       {item.reason && (
         <div style={{
           fontSize: 11,
           color: "var(--text-secondary)",
-          lineHeight: 1.5,
-          padding: "8px 10px",
-          background: "var(--bg-2)",
-          borderRadius: 6,
-          borderLeft: `2px solid ${meta.color}80`,
+          lineHeight: 1.45,
+          marginTop: isDanger ? 6 : 10,
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
         }}>
           {item.reason}
         </div>
       )}
     </button>
-  );
-}
-
-
-function Indicator({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-      <span style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 500 }}>{label}</span>
-      <span style={{ color, fontWeight: 600 }}>{value}</span>
-    </div>
   );
 }

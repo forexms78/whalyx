@@ -145,6 +145,76 @@ def _calc_rsi(closes: list[float], period: int = 14) -> float:
     return round(100 - (100 / (1 + rs)), 1)
 
 
+# ─────────────────────────────────────────────
+# ABCE 추세·안전성 (강세장 매도 가드 + 과매수 매수 가드)
+# ─────────────────────────────────────────────
+
+SIGNAL_LADDER = ["STRONG_SELL", "SELL", "HOLD", "BUY", "STRONG_BUY"]
+
+
+def _trend_score(closes: list[float]) -> float:
+    """MA50의 30일 기울기 기반 추세 강도 (0~100). 종가만 필요."""
+    if len(closes) < 80:
+        return 50.0
+    ma50_today    = sum(closes[-50:])    / 50
+    ma50_30d_ago  = sum(closes[-80:-30]) / 50
+    if ma50_30d_ago == 0:
+        return 50.0
+    slope_pct = (ma50_today - ma50_30d_ago) / ma50_30d_ago * 100
+    score = 50 + slope_pct * 6  # +5% → 80, 0% → 50, -5% → 20
+    return max(0.0, min(100.0, round(score, 1)))
+
+
+def _trend_phase(trend_score: float, above_ma200: bool) -> str:
+    """MARKUP(상승) / SIDEWAYS(횡보) / MARKDOWN(하락)."""
+    if trend_score >= 70 and above_ma200:
+        return "MARKUP"
+    if trend_score <= 30 or not above_ma200:
+        return "MARKDOWN"
+    return "SIDEWAYS"
+
+
+def _safety_grade(rsi: float, week52_pos: float, above_ma200: bool, trend_score: float) -> str:
+    """매수 안전성: SAFE / PARTIAL / DANGER."""
+    if rsi >= 75 or week52_pos >= 95:
+        return "DANGER"
+    if week52_pos >= 85 and rsi >= 70:
+        return "DANGER"
+    if above_ma200 and 30 <= rsi <= 65 and 30 <= week52_pos <= 75 and trend_score >= 60:
+        return "SAFE"
+    return "PARTIAL"
+
+
+def _adjust_signal(signal: str, delta: int) -> str:
+    """시그널 강도 ±단계 이동 (+= 매수쪽, -= 매도쪽)."""
+    try:
+        idx = SIGNAL_LADDER.index(signal)
+    except ValueError:
+        return signal
+    return SIGNAL_LADDER[max(0, min(len(SIGNAL_LADDER) - 1, idx + delta))]
+
+
+def _apply_abce(m: dict) -> None:
+    """
+    ABCE 시그널 보정 — 평균회귀 시그널의 강세장 약점 보강:
+      A. 추세 가드 — MARKUP 단계 + 안전성 SAFE/PARTIAL이면 매도 시그널 한 단계 약화
+      E. 안전성 — DANGER이면 매수 시그널 한 단계 약화
+    """
+    safety = m["safety"]
+    phase  = m["trend_phase"]
+    sig    = m["signal"]
+
+    if safety == "DANGER" and sig in ("STRONG_BUY", "BUY"):
+        m["signal"] = _adjust_signal(sig, -1)
+        m["reason"] = f"[안전성 DANGER] {m['reason']}"
+        return
+
+    if phase == "MARKUP" and safety in ("SAFE", "PARTIAL") and sig in ("STRONG_SELL", "SELL"):
+        m["signal"] = _adjust_signal(sig, +1)
+        m["reason"] = f"[MARKUP 추세 가드] {m['reason']}"
+        return
+
+
 def _calc_metrics(item: dict, hist: dict) -> dict:
     closes  = hist["closes"]
     current = closes[-1]
@@ -170,6 +240,11 @@ def _calc_metrics(item: dict, hist: dict) -> dict:
             return None
         return round((current - closes[-periods - 1]) / closes[-periods - 1] * 100, 1)
 
+    above_ma200_b = current > ma200
+    trend_score   = _trend_score(closes)
+    trend_phase   = _trend_phase(trend_score, above_ma200_b)
+    safety        = _safety_grade(rsi, week52_pos, above_ma200_b, trend_score)
+
     return {
         "ticker":         item["ticker"],
         "name":           item["name"],
@@ -184,11 +259,14 @@ def _calc_metrics(item: dict, hist: dict) -> dict:
         "ma50":           ma50,
         "ma200":          ma200,
         "above_ma50":     current > ma50,
-        "above_ma200":    current > ma200,
+        "above_ma200":    above_ma200_b,
         "golden_cross":   ma50 > ma200,
         "change_1m":      chg(21),
         "change_3m":      chg(63),
         "change_1y":      round((current - closes[0]) / closes[0] * 100, 1),
+        "trend_score":    trend_score,
+        "trend_phase":    trend_phase,
+        "safety":         safety,
     }
 
 
@@ -293,6 +371,7 @@ def get_etf_signals() -> dict:
         j = judgments.get(m["ticker"]) or _fallback_signal(m)
         m["signal"] = j["signal"]
         m["reason"] = j["reason"]
+        _apply_abce(m)
         if m["ticker"] in etf_set:
             etfs.append(m)
         elif m["ticker"] in us_set:

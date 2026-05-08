@@ -243,6 +243,8 @@ export interface NewsAIData {
 }
 
 export type ETFSignal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+export type TrendPhase = "MARKUP" | "SIDEWAYS" | "MARKDOWN";
+export type SafetyGrade = "SAFE" | "PARTIAL" | "DANGER";
 
 export interface ETFSignalItem {
   ticker: string;
@@ -265,6 +267,9 @@ export interface ETFSignalItem {
   change_1y: number;
   signal: ETFSignal;
   reason: string;
+  trend_score?: number;
+  trend_phase?: TrendPhase;
+  safety?: SafetyGrade;
 }
 
 export interface ETFSignalsData {
