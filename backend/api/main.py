@@ -391,6 +391,40 @@ async def korea_rates():
 
 
 # ─────────────────────────────────────────────
+# 외국인 매매 (Foreign Flow — KRX)
+# ─────────────────────────────────────────────
+
+@app.get("/foreign-flow")
+async def foreign_flow():
+    """외국인 순매수/순매도 종목 TOP — KOSPI·KOSDAQ (네이버 금융)
+    (DB-Only — 스케줄러 KST 16:30 + 17:30)"""
+    cached = await _run(db_get_stale, "foreign_flow")
+    if cached:
+        return cached
+    return {
+        "top_buyers":  {"kospi": [], "kosdaq": []},
+        "top_sellers": {"kospi": [], "kosdaq": []},
+        "updated_at":  None,
+        "source":      "naver_finance",
+    }
+
+
+@app.get("/foreign-flow/{ticker}")
+async def foreign_flow_by_ticker(ticker: str):
+    """종목별 외국인·기관·개인 일별 매매 추이 — KIS Open API (5분 캐시)"""
+    from backend.services.foreign_flow import get_foreign_flow_by_ticker
+    cache_key = f"foreign_flow_{ticker.strip()}"
+    cached = await _run(db_get_stale, cache_key)
+    if cached:
+        return cached
+    result = await _run(get_foreign_flow_by_ticker, ticker)
+    if "error" in result and not result.get("flow"):
+        raise HTTPException(status_code=502, detail=result.get("error", "조회 실패"))
+    await _run(db_set, cache_key, result)
+    return result
+
+
+# ─────────────────────────────────────────────
 # 고래 신호 (Whale Signal)
 # ─────────────────────────────────────────────
 

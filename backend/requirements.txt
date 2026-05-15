@@ -11,3 +11,4 @@ feedparser==6.0.11
 apscheduler==3.10.4
 redis==5.0.8
 finance-datareader>=0.9.110
+beautifulsoup4>=4.12.0
