@@ -26,9 +26,14 @@ logger = logging.getLogger(__name__)
 
 _KST = ZoneInfo("Asia/Seoul")
 _NAVER_BASE = "https://finance.naver.com"
+_NAVER_MOBILE_BASE = "https://m.stock.naver.com"
 _NAVER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Whalyx/2.6 +https://whalyx.vercel.app)",
     "Referer": "https://finance.naver.com/sise/",
+}
+_NAVER_MOBILE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (iPhone; Whalyx/2.6 +https://whalyx.vercel.app)",
+    "Referer": "https://m.stock.naver.com/",
 }
 
 # 네이버 sosok 코드: 01=KOSPI, 02=KOSDAQ
@@ -116,8 +121,50 @@ def get_top_foreign_sellers(market: str = "KOSPI", limit: int = 20) -> list:
     return _fetch_naver_top(market, "sell", limit)
 
 
+def get_market_deal_trend_today(market: str = "KOSPI") -> dict:
+    """시장 전체 외국인·기관·개인 당일 매매 합계 (네이버 모바일 integration API).
+
+    네이버는 일별 시계열 API를 노출하지 않으므로,
+    스케줄러가 매일 KST 16:30+17:30 호출 → history에 누적 저장한다.
+
+    Returns:
+        {"bizdate": "2026-05-15", "personal": 72286, "foreign": -56043, "institutional": -17331}
+        (단위: 백만원, 음수 = 순매도)
+    """
+    code = market.upper()
+    if code not in ("KOSPI", "KOSDAQ"):
+        return {}
+    try:
+        res = requests.get(
+            f"{_NAVER_MOBILE_BASE}/api/index/{code}/integration",
+            headers=_NAVER_MOBILE_HEADERS,
+            timeout=10,
+        )
+        res.raise_for_status()
+        info = (res.json() or {}).get("dealTrendInfo") or {}
+        if not info:
+            return {}
+        bizdate_raw = info.get("bizdate", "")
+        date_str = (
+            f"{bizdate_raw[:4]}-{bizdate_raw[4:6]}-{bizdate_raw[6:]}"
+            if len(bizdate_raw) == 8 else bizdate_raw
+        )
+        return {
+            "bizdate":       date_str,
+            "personal":      _to_int(info.get("personalValue", "0")),
+            "foreign":       _to_int(info.get("foreignValue", "0")),
+            "institutional": _to_int(info.get("institutionalValue", "0")),
+        }
+    except Exception as e:
+        logger.error(f"[foreign_flow] {code} 시장합계 조회 실패: {e}")
+        return {}
+
+
 def build_foreign_flow_snapshot() -> dict:
-    """스케줄러용 단일 스냅샷 — 시장 외국인 매매 TOP 일괄 빌드."""
+    """스케줄러용 단일 스냅샷 — 종목 TOP + 시장 합계(당일).
+
+    market_history는 스케줄러가 기존 캐시와 머지해서 채운다 (이 함수는 당일분만).
+    """
     return {
         "top_buyers": {
             "kospi":  get_top_foreign_buyers("KOSPI",  limit=20),
@@ -127,8 +174,12 @@ def build_foreign_flow_snapshot() -> dict:
             "kospi":  get_top_foreign_sellers("KOSPI",  limit=20),
             "kosdaq": get_top_foreign_sellers("KOSDAQ", limit=20),
         },
+        "market_today": {
+            "kospi":  get_market_deal_trend_today("KOSPI"),
+            "kosdaq": get_market_deal_trend_today("KOSDAQ"),
+        },
         "updated_at": datetime.now(_KST).isoformat(),
-        "source": "naver_finance",
+        "source": {"top": "naver_iframe", "market": "naver_mobile"},
     }
 
 

@@ -379,17 +379,54 @@ async def refresh_news_ai():
 
 
 async def refresh_foreign_flow():
-    """외국인 매매 데이터 갱신 (KRX, pykrx) — 장 마감 후 1회 + 백업 1회"""
+    """외국인 매매 데이터 갱신 — 종목 TOP(네이버) + 시장 합계(네이버 모바일).
+    시장 합계는 당일분만 받으므로 기존 캐시의 history와 머지해 30일치 시계열을 누적한다.
+    KST 16:30(1차) + 17:30(백업) 자동 실행."""
     from backend.services.foreign_flow import build_foreign_flow_snapshot
-    from backend.services.db_cache import db_set
+    from backend.services.db_cache import db_get_stale, db_set
+
+    HISTORY_LIMIT = 30  # 시장 합계 보관 일수
+
+    def _merge_history(prev_hist: list, today: dict) -> list:
+        """오늘 bizdate가 이미 있으면 update, 없으면 append. 30일 cap."""
+        if not today or not today.get("bizdate"):
+            return prev_hist or []
+        out = [r for r in (prev_hist or []) if r.get("date") != today["bizdate"]]
+        out.append({
+            "date":          today["bizdate"],
+            "personal":      today.get("personal", 0),
+            "foreign":       today.get("foreign", 0),
+            "institutional": today.get("institutional", 0),
+        })
+        out.sort(key=lambda r: r["date"])
+        return out[-HISTORY_LIMIT:]
+
     try:
         snapshot = await _run_sync(build_foreign_flow_snapshot)
-        m = snapshot.get("market", {}) or {}
-        if not m.get("kospi") and not m.get("kosdaq"):
+
+        # 빈 응답 가드 — 종목 TOP·시장 합계 모두 비어있으면 기존 DB 보존
+        tb = snapshot.get("top_buyers", {}) or {}
+        mt = snapshot.get("market_today", {}) or {}
+        empty_tb = not (tb.get("kospi") or tb.get("kosdaq"))
+        empty_mt = not ((mt.get("kospi") or {}).get("bizdate") or (mt.get("kosdaq") or {}).get("bizdate"))
+        if empty_tb and empty_mt:
             logger.warning("⚠️ [scheduler] foreign_flow 빈 응답 — 기존 DB 유지")
             return
+
+        # 기존 캐시에서 market_history 가져와 머지
+        prev = await _run_sync(db_get_stale, "foreign_flow") or {}
+        prev_hist = prev.get("market_history") or {}
+        snapshot["market_history"] = {
+            "kospi":  _merge_history(prev_hist.get("kospi"),  mt.get("kospi")  or {}),
+            "kosdaq": _merge_history(prev_hist.get("kosdaq"), mt.get("kosdaq") or {}),
+        }
+
         await _run_sync(db_set, "foreign_flow", snapshot)
-        logger.info("✅ [scheduler] foreign_flow 갱신 완료")
+        logger.info(
+            f"✅ [scheduler] foreign_flow 갱신 완료 "
+            f"(history KOSPI={len(snapshot['market_history']['kospi'])}일, "
+            f"KOSDAQ={len(snapshot['market_history']['kosdaq'])}일)"
+        )
     except Exception as e:
         logger.error(f"❌ [scheduler] foreign_flow 갱신 실패: {e}")
 

@@ -20,9 +20,10 @@ import Tooltip from "@/components/Tooltip";
 import { useT } from "@/contexts/LanguageContext";
 
 // 클릭 시점에만 chunk 로드 — 초기 번들 크기 축소
-const InvestorModal = dynamic(() => import("@/components/InvestorModal"));
-const StockModal    = dynamic(() => import("@/components/StockModal"));
-const QuantTab      = dynamic(() => import("@/components/quant/QuantTab"));
+const InvestorModal     = dynamic(() => import("@/components/InvestorModal"));
+const StockModal        = dynamic(() => import("@/components/StockModal"));
+const QuantTab          = dynamic(() => import("@/components/quant/QuantTab"));
+const ForeignFlowSection = dynamic(() => import("@/components/ForeignFlowSection"));
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -424,6 +425,8 @@ export default function Home() {
 
             <PilotsSection investors={investors} onSelect={setSelectedInvestor} />
             <TopPerformersSection stocks={hotStocks} onSelect={setSelectedStock} />
+
+            <ForeignFlowSection />
 
             {moneyFlow && <MoneyFlowSection data={moneyFlow} korea_rates={moneyFlow.korea_rates} />}
           </div>

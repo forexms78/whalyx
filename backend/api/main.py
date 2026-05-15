@@ -396,16 +396,21 @@ async def korea_rates():
 
 @app.get("/foreign-flow")
 async def foreign_flow():
-    """외국인 순매수/순매도 종목 TOP — KOSPI·KOSDAQ (네이버 금융)
+    """외국인 매매 종합 — KOSPI·KOSDAQ
+    - top_buyers/top_sellers: 외국인 순매수·순매도 종목 TOP 20 (당일, 네이버)
+    - market_today: 시장 전체 외국인·기관·개인 당일 합계 (네이버 모바일)
+    - market_history: 시장 합계 30일 시계열 (스케줄러가 매일 누적)
     (DB-Only — 스케줄러 KST 16:30 + 17:30)"""
     cached = await _run(db_get_stale, "foreign_flow")
     if cached:
         return cached
     return {
-        "top_buyers":  {"kospi": [], "kosdaq": []},
-        "top_sellers": {"kospi": [], "kosdaq": []},
-        "updated_at":  None,
-        "source":      "naver_finance",
+        "top_buyers":     {"kospi": [], "kosdaq": []},
+        "top_sellers":    {"kospi": [], "kosdaq": []},
+        "market_today":   {"kospi": {}, "kosdaq": {}},
+        "market_history": {"kospi": [], "kosdaq": []},
+        "updated_at":     None,
+        "source":         {"top": "naver_iframe", "market": "naver_mobile"},
     }
 
 
