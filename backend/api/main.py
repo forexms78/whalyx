@@ -405,12 +405,15 @@ async def foreign_flow():
     if cached:
         return cached
     return {
-        "top_buyers":     {"kospi": [], "kosdaq": []},
-        "top_sellers":    {"kospi": [], "kosdaq": []},
-        "market_today":   {"kospi": {}, "kosdaq": {}},
-        "market_history": {"kospi": [], "kosdaq": []},
-        "updated_at":     None,
-        "source":         {"top": "naver_iframe", "market": "naver_mobile"},
+        "top_buyers":      {"kospi": [], "kosdaq": []},
+        "top_sellers":     {"kospi": [], "kosdaq": []},
+        "market_today":    {"kospi": {}, "kosdaq": {}},
+        "market_history":  {"kospi": [], "kosdaq": []},
+        "top_history":     {"kospi": {}, "kosdaq": {}},
+        "available_dates": [],
+        "current_date":    None,
+        "updated_at":      None,
+        "source":          {"top": "naver_iframe", "market": "naver_mobile"},
     }
 
 

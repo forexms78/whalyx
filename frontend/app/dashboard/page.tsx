@@ -27,7 +27,7 @@ const ForeignFlowSection = dynamic(() => import("@/components/ForeignFlowSection
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-type Tab = "signal" | "markets" | "etfstocks" | "quant";
+type Tab = "signal" | "markets" | "etfstocks" | "foreign" | "quant";
 type MarketTab = "stocks" | "crypto" | "realestate" | "commodities" | "bonds";
 
 const WHALE_TO_MARKET: Record<string, MarketTab> = {
@@ -182,6 +182,7 @@ export default function Home() {
     { id: "signal",    label: t("tab.signal")    },
     { id: "markets",   label: t("tab.markets")   },
     { id: "etfstocks", label: t("tab.etfstocks") },
+    { id: "foreign",   label: t("tab.foreign")   },
     { id: "quant",     label: t("tab.quant")     },
   ];
 
@@ -426,8 +427,6 @@ export default function Home() {
             <PilotsSection investors={investors} onSelect={setSelectedInvestor} />
             <TopPerformersSection stocks={hotStocks} onSelect={setSelectedStock} />
 
-            <ForeignFlowSection />
-
             {moneyFlow && <MoneyFlowSection data={moneyFlow} korea_rates={moneyFlow.korea_rates} />}
           </div>
         )}
@@ -471,6 +470,11 @@ export default function Home() {
             usdKrw={moneyFlow?.korea_rates?.usd_krw ?? undefined}
             data={etfSignals}
           />
+        )}
+        {activeTab === "foreign" && (
+          <div className="fade-in">
+            <ForeignFlowSection />
+          </div>
         )}
         {activeTab === "quant" && (
           <div className="fade-in">
